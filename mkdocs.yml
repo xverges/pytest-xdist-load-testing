@@ -1,0 +1,10 @@
+site_name: pytest-xdist-load-testing
+site_description: xdist scheduler to repeately run tests
+site_author: Xavier Vergés
+
+theme: readthedocs
+
+repo_url: https://github.com/xverges/pytest-xdist-load-testing
+
+pages:
+- Home: index.md
