@@ -2,19 +2,19 @@
 pytest-xdist-load-testing
 =========================
 
-.. image:: https://img.shields.io/pypi/v/pytest-xdist-load-testing.svg
-    :target: https://pypi.org/project/pytest-xdist-load-testing
-    :alt: PyPI version
-
-.. image:: https://img.shields.io/pypi/pyversions/pytest-xdist-load-testing.svg
-    :target: https://pypi.org/project/pytest-xdist-load-testing
-    :alt: Python versions
+.. .. image:: https://img.shields.io/pypi/v/pytest-xdist-load-testing.svg
+..     :target: https://pypi.org/project/pytest-xdist-load-testing
+..     :alt: PyPI version
+..
+.. .. image:: https://img.shields.io/pypi/pyversions/pytest-xdist-load-testing.svg
+..     :target: https://pypi.org/project/pytest-xdist-load-testing
+..     :alt: Python versions
 
 .. image:: https://github.com/xverges/pytest-xdist-load-testing/actions/workflows/main.yml/badge.svg
     :target: https://github.com/xverges/pytest-xdist-load-testing/actions/workflows/main.yml
     :alt: See Build Status on GitHub Actions
 
-xdist scheduler to repeately run tests
+A pytest-xdist scheduler for continuous load testing with weighted test selection
 
 ----
 
@@ -24,27 +24,152 @@ This `pytest`_ plugin was generated with `Cookiecutter`_ along with `@hackebrot`
 Features
 --------
 
-* TODO
+* **Continuous Test Execution**: Runs tests repeatedly until manually interrupted
+* **Weighted Test Selection**: Control test execution frequency using the ``@weight`` decorator
+* **Random Selection**: Tests are selected randomly based on their weights using ``random.choices``
+* **Graceful Interruption**: Tests and fixtures can stop the scheduler programmatically
+* **pytest-xdist Integration**: Seamlessly integrates with pytest-xdist's distributed testing
 
 
 Requirements
 ------------
 
-* TODO
+* Python 3.8+
+* pytest >= 6.2.0
+* pytest-xdist >= 2.0.0
 
 
 Installation
 ------------
 
-You can install "pytest-xdist-load-testing" via `pip`_ from `PyPI`_::
+Install directly from the GitHub repository::
 
-    $ pip install pytest-xdist-load-testing
+    $ pip install git+https://github.com/xverges/pytest-xdist-load-testing.git
 
 
 Usage
 -----
 
-* TODO
+Basic Load Testing
+~~~~~~~~~~~~~~~~~~
+
+Run your tests with pytest-xdist to enable the load testing scheduler::
+
+    $ pytest --load-test -n 4 path/to/test_module.py  # Run with 4 workers
+
+The scheduler will continuously supply tests to workers until interrupted (Ctrl+C).
+
+**Important**: Load testing requires specifying a single test module. Running multiple modules will result in an error::
+
+    $ pytest --load-test -n 4 tests/  # ERROR: Multiple modules detected
+    $ pytest --load-test -n 4 test_a.py test_b.py  # ERROR: Multiple modules
+
+This restriction ensures proper fixture handling and test isolation during continuous execution.
+
+
+Weighted Tests
+~~~~~~~~~~~~~~
+
+Use the ``@weight`` decorator to control how frequently tests are selected:
+
+.. code-block:: python
+
+    from pytest_load_testing import weight
+
+    @weight(1)
+    def test_rare_operation():
+        """This test runs less frequently"""
+        assert perform_rare_check()
+
+    @weight(10)
+    def test_common_operation():
+        """This test runs 10x more frequently"""
+        assert perform_common_check()
+
+    def test_default_weight():
+        """Tests without @weight have weight=1"""
+        assert True
+
+Tests with higher weights are more likely to be selected. The probability is proportional to the weight.
+
+
+Stopping the Scheduler
+~~~~~~~~~~~~~~~~~~~~~~
+
+Tests can stop the scheduler programmatically using the ``stop_load_testing`` function:
+
+.. code-block:: python
+
+    from pytest_load_testing import stop_load_testing
+
+    def test_with_stop_condition(request):
+        result = check_system_health()
+        if result.critical_failure:
+            stop_load_testing(request, "Critical failure detected")
+
+
+Command Line Options
+~~~~~~~~~~~~~~~~~~~~
+
+The plugin adds the following command line option::
+
+    --load-test    Enable load testing mode with continuous test execution
+
+
+Examples
+~~~~~~~~
+
+**Simple load test with equal weights:**
+
+.. code-block:: python
+
+    def test_endpoint_a():
+        assert api.get("/a").status_code == 200
+
+    def test_endpoint_b():
+        assert api.get("/b").status_code == 200
+
+Run with::
+
+    $ pytest --load-test -n 2 test_endpoints.py
+
+**Load test with weighted distribution:**
+
+.. code-block:: python
+
+    from pytest_load_testing import weight
+
+    @weight(70)
+    def test_read_heavy():
+        """70% of requests"""
+        assert api.get("/data").status_code == 200
+
+    @weight(20)
+    def test_write_operations():
+        """20% of requests"""
+        assert api.post("/data", json={}).status_code == 201
+
+    @weight(10)
+    def test_admin_operations():
+        """10% of requests"""
+        assert api.delete("/data/old").status_code == 204
+
+**Conditional stop:**
+
+.. code-block:: python
+
+    from pytest_load_testing import weight, stop_load_testing
+
+    @weight(1)
+    def test_health_check(request):
+        response = api.get("/health")
+        if response.json()["status"] == "critical":
+            stop_load_testing(request, "System health critical")
+        assert response.status_code == 200
+
+    @weight(10)
+    def test_normal_operation():
+        assert api.get("/api/data").status_code == 200
 
 Contributing
 ------------
@@ -65,9 +190,6 @@ If you encounter any problems, please `file an issue`_ along with a detailed des
 .. _`Cookiecutter`: https://github.com/audreyr/cookiecutter
 .. _`@hackebrot`: https://github.com/hackebrot
 .. _`MIT`: https://opensource.org/licenses/MIT
-.. _`BSD-3`: https://opensource.org/licenses/BSD-3-Clause
-.. _`GNU GPL v3.0`: https://www.gnu.org/licenses/gpl-3.0.txt
-.. _`Apache Software License 2.0`: https://www.apache.org/licenses/LICENSE-2.0
 .. _`cookiecutter-pytest-plugin`: https://github.com/pytest-dev/cookiecutter-pytest-plugin
 .. _`file an issue`: https://github.com/xverges/pytest-xdist-load-testing/issues
 .. _`pytest`: https://github.com/pytest-dev/pytest
