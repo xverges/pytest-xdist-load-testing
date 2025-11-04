@@ -276,7 +276,7 @@ class LoadTestScheduler(LoadScheduling):
         except (ValueError, IndexError):
             pass
 
-    def remove_node(self, node: WorkerController) -> str | None:
+    def remove_node(self, node: WorkerController) -> Optional[str]:
         """Called when a worker node is removed."""
         # For load testing, we don't reschedule crashed items
         # Just remove the node
