@@ -116,7 +116,7 @@ def test_conditional_skip_detection(pytester):
 
     # In load testing mode, tests run multiple times until stopped
     # Just verify it stopped gracefully
-    assert result.ret == 2  # Interrupted
+    assert result.ret == pytest.ExitCode.INTERRUPTED
     result.stdout.fnmatch_lines([
         '*Interrupted: Test complete*',
     ])
@@ -144,7 +144,7 @@ def test_skip_during_setup(pytester):
 
     # In load testing mode, tests run multiple times until stopped
     # Just verify it stopped gracefully
-    assert result.ret == 2  # Interrupted
+    assert result.ret == pytest.ExitCode.INTERRUPTED
     result.stdout.fnmatch_lines([
         '*Interrupted: Test complete*',
     ])
@@ -201,35 +201,34 @@ def test_skip_idempotent(pytester):
 
 def test_all_tests_eventually_skip(pytester):
     """Test that scheduler stops when all tests start skipping after iterations."""
+    pytester.makeconftest("""
+        pytest_plugins = ['pytest_load_testing.concurrent_fixtures']
+    """)
+
     pytester.makepyfile("""
         import pytest
-        import os
-        from pathlib import Path
 
-        # Use file-based counter that works across xdist workers
-        counter_dir = Path(__file__).parent / '.test_counters'
-        counter_dir.mkdir(exist_ok=True)
+        @pytest.fixture(scope="session")
+        def test_counters(shared_json_fixture_factory):
+            return shared_json_fixture_factory(
+                "test_counters",
+                on_first_worker={'a': 0, 'b': 0}
+            )
 
-        def get_count(test_name):
-            counter_file = counter_dir / f'{test_name}.txt'
-            if counter_file.exists():
-                return int(counter_file.read_text())
-            return 0
+        def test_eventually_skips_a(test_counters):
+            with test_counters.locked_dict() as data:
+                data['a'] += 1
+                count = data['a']
 
-        def increment_count(test_name):
-            counter_file = counter_dir / f'{test_name}.txt'
-            count = get_count(test_name) + 1
-            counter_file.write_text(str(count))
-            return count
-
-        def test_eventually_skips_a():
-            count = increment_count('a')
             if count > 2:
                 pytest.skip("Test A skipping after 2 runs")
             assert True
 
-        def test_eventually_skips_b():
-            count = increment_count('b')
+        def test_eventually_skips_b(test_counters):
+            with test_counters.locked_dict() as data:
+                data['b'] += 1
+                count = data['b']
+
             if count > 3:
                 pytest.skip("Test B skipping after 3 runs")
             assert True
@@ -238,7 +237,7 @@ def test_all_tests_eventually_skip(pytester):
     result = pytester.runpytest('--load-test', '-n', '2', '-v')
 
     # Should detect all tests are skipped and exit properly
-    assert result.ret == 2  # Interrupted
+    assert result.ret == pytest.ExitCode.INTERRUPTED
 
     # Verify tests were executed before they started skipping
     result.stdout.fnmatch_lines_random([

@@ -20,7 +20,7 @@ def test_single_module_accepted(pytester):
     result.stdout.fnmatch_lines([
         '*Interrupted: Test complete*',
     ])
-    assert result.ret == 2  # Interrupted exit code
+    assert result.ret == pytest.ExitCode.INTERRUPTED
 
 
 def test_multiple_modules_rejected(pytester):
@@ -95,4 +95,4 @@ def test_single_module_with_classes(pytester):
     result.stdout.fnmatch_lines([
         '*Interrupted: Test complete*',
     ])
-    assert result.ret == 2  # Interrupted exit code
+    assert result.ret == pytest.ExitCode.INTERRUPTED

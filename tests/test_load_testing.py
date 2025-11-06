@@ -51,7 +51,7 @@ def test_weighted_tests_basic(pytester):
         '*Interrupted: Test complete*',
     ])
     # Load test mode exits with code 2 (interrupted) when stopped gracefully
-    assert result.ret == 2
+    assert result.ret == pytest.ExitCode.INTERRUPTED
 
 
 def test_scheduler_add_node(pytester):
@@ -125,7 +125,7 @@ def test_plugin_integration(pytester):
         '*Interrupted: Test complete*',
     ])
     # Load test mode exits with code 2 (interrupted) when stopped gracefully
-    assert result.ret == 2
+    assert result.ret == pytest.ExitCode.INTERRUPTED
 
 
 def test_multiple_weighted_tests(pytester):
@@ -152,7 +152,7 @@ def test_multiple_weighted_tests(pytester):
 
     result = pytester.runpytest('--load-test', '-n', '2', '-v')
     # Load test mode exits with code 2 (interrupted) when stopped gracefully
-    assert result.ret == 2
+    assert result.ret == pytest.ExitCode.INTERRUPTED
 
 
 
@@ -177,7 +177,7 @@ def test_weight_with_parametrize(pytester):
         '*Interrupted: Test complete*',
     ])
     # Load test mode exits with code 2 (interrupted) when stopped gracefully
-    assert result.ret == 2
+    assert result.ret == pytest.ExitCode.INTERRUPTED
 
 
 def test_scheduler_remove_node(pytester):
@@ -218,7 +218,7 @@ def test_load_test_option(pytester):
 
     result = pytester.runpytest('--load-test', '-n', '2', '-v')
     # Load test mode exits with code 2 (interrupted) when stopped gracefully
-    assert result.ret == 2
+    assert result.ret == pytest.ExitCode.INTERRUPTED
 
 
 def test_help_message(pytester):
@@ -247,7 +247,7 @@ def test_stop_load_testing_does_not_fail_test(pytester):
         '*PASSED*test_graceful_stop*',
     ])
     # Session is interrupted (exit code 2) but test passed
-    assert result.ret == 2  # INTERRUPTED exit code
+    assert result.ret == pytest.ExitCode.INTERRUPTED
     # Verify the interruption message
     result.stdout.fnmatch_lines([
         '*Interrupted: Graceful stop requested*',
@@ -269,7 +269,7 @@ def test_stop_load_testing_with_session(pytester):
 
     result = pytester.runpytest('--load-test', '-n', '2', '-v')
     # Verify it stopped gracefully
-    assert result.ret == 2  # INTERRUPTED exit code
+    assert result.ret == pytest.ExitCode.INTERRUPTED
     result.stdout.fnmatch_lines([
         '*Interrupted: Stopping after this test*',
     ])

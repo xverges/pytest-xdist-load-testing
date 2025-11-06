@@ -119,20 +119,6 @@ The plugin adds the following command line option::
 Examples
 ~~~~~~~~
 
-**Simple load test with equal weights:**
-
-.. code-block:: python
-
-    def test_endpoint_a():
-        assert api.get("/a").status_code == 200
-
-    def test_endpoint_b():
-        assert api.get("/b").status_code == 200
-
-Run with::
-
-    $ pytest --load-test -n 2 test_endpoints.py
-
 **Load test with weighted distribution:**
 
 .. code-block:: python
@@ -154,27 +140,37 @@ Run with::
         """10% of requests"""
         assert api.delete("/data/old").status_code == 204
 
-**Conditional stop:**
+**Conditional stop with shared state across workers:**
 
 .. code-block:: python
 
+    import pytest
     from pytest_load_testing import weight, stop_load_testing
 
+    @pytest.fixture(scope="session")
+    def error_tracker(shared_json_fixture_factory):
+        """Track errors across all workers."""
+        return shared_json_fixture_factory(
+            name="errors",
+            on_first_worker={'count': 0}
+        )
+
     @weight(1)
-    def test_health_check(request):
+    def test_health_check(request, error_tracker):
         response = api.get("/health")
         if response.json()["status"] == "critical":
             stop_load_testing(request, "System health critical")
         assert response.status_code == 200
 
     @weight(10)
-    def test_normal_operation():
-        assert api.get("/api/data").status_code == 200
+    def test_normal_operation(error_tracker):
+        try:
+            assert api.get("/api/data").status_code == 200
+        except AssertionError:
+            with error_tracker.locked_dict() as data:
+                data['count'] += 1
 
-Contributing
-------------
-Contributions are very welcome. Tests can be run with `tox`_, please ensure
-the coverage at least stays the same before you submit a pull request.
+See the full documentation for more details on concurrent fixtures and shared state.
 
 License
 -------

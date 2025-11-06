@@ -212,6 +212,8 @@ def test_failure_tracking_integration(pytester):
         import pytest
         from pytest_load_testing.constants import stash_key_scheduler
 
+        pytest_plugins = ['pytest_load_testing.concurrent_fixtures']
+
         captured_scheduler = None
 
         @pytest.hookimpl(trylast=True)
@@ -232,20 +234,33 @@ def test_failure_tracking_integration(pytester):
     """)
 
     pytester.makepyfile("""
+        import pytest
         from pytest_load_testing import stop_load_testing
 
-        run_count = {'failing': 0, 'passing': 0}
+        @pytest.fixture(scope="session")
+        def run_count(shared_json_fixture_factory):
+            return shared_json_fixture_factory(
+                "run_count",
+                on_first_worker={'failing': 0, 'passing': 0}
+            )
 
-        def test_failing():
-            run_count['failing'] += 1
-            if run_count['failing'] < 3:
+        def test_failing(run_count):
+            with run_count.locked_dict() as data:
+                data['failing'] += 1
+                failing_count = data['failing']
+
+            if failing_count < 3:
                 assert False, "Intentional failure"
             assert True
 
-        def test_passing(request):
-            run_count['passing'] += 1
+        def test_passing(request, run_count):
+            with run_count.locked_dict() as data:
+                data['passing'] += 1
+                failing_count = data['failing']
+                passing_count = data['passing']
+
             # Stop after enough iterations to see tracking
-            if run_count['failing'] >= 3 and run_count['passing'] >= 3:
+            if failing_count >= 3 and passing_count >= 3:
                 stop_load_testing(request, "Test complete")
             assert True
     """)
@@ -256,7 +271,7 @@ def test_failure_tracking_integration(pytester):
     result.stdout.fnmatch_lines([
         '*Interrupted: Test complete*',
     ])
-    assert result.ret == 2  # Interrupted exit code
+    assert result.ret == pytest.ExitCode.INTERRUPTED
 
     # Verify tracking data was captured
     import json

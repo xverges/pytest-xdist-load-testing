@@ -1,15 +1,5 @@
 """
-Comprehensive tests for fixture lifecycle in load testing mode.
-
-This test suite verifies that fixtures with different scopes are properly
-initialized, reinitialized, and torn down during load testing execution.
-Tests cover:
-- Request fixture availability
-- Function-scoped fixture reinitialization
-- Module and session scope persistence
-- Class-based fixtures
-- Setup/teardown lifecycle
-- Multiple tests with shared fixtures
+Tests for fixture lifecycle in load testing mode.
 """
 import pytest
 
@@ -48,68 +38,90 @@ def test_request_fixture_available(pytester):
     result.stdout.fnmatch_lines([
         '*Interrupted: Request fixture verified*',
     ])
-    assert result.ret == 2  # Interrupted exit code
+    assert result.ret == pytest.ExitCode.INTERRUPTED
 
 
 def test_all_fixture_scopes(pytester):
     """Test that fixtures with different scopes provide correct data."""
+    pytester.makeconftest("""
+        pytest_plugins = ['pytest_load_testing.concurrent_fixtures']
+    """)
+
     pytester.makepyfile("""
         import pytest
         import json
         from pathlib import Path
         from pytest_load_testing import weight, stop_load_testing
 
-        # Track setup/teardown calls
-        session_setup_count = 0
-        session_teardown_count = 0
-        module_setup_count = 0
-        module_teardown_count = 0
-        function_setup_count = 0
-        function_teardown_count = 0
+        @pytest.fixture(scope="session")
+        def fixture_counts(shared_json_fixture_factory):
+            def finalize(shared):
+                # Write final counts to file for verification
+                data = shared.read()
+                Path("fixture_counts.json").write_text(json.dumps(data))
+
+            return shared_json_fixture_factory(
+                "fixture_counts",
+                on_first_worker={
+                    "session_setup": 0,
+                    "session_teardown": 0,
+                    "module_setup": 0,
+                    "module_teardown": 0,
+                    "function_setup": 0,
+                    "function_teardown": 0,
+                },
+                on_last_worker=finalize
+            )
 
         @pytest.fixture(scope="session")
-        def session_fixture():
-            global session_setup_count
-            session_setup_count += 1
-            data = {"scope": "session", "data": "session_data", "setup_count": session_setup_count}
-            yield data
-            global session_teardown_count
-            session_teardown_count += 1
-            # Write teardown count to file
-            Path("fixture_counts.json").write_text(json.dumps({
-                "session_setup": session_setup_count,
-                "session_teardown": session_teardown_count,
-                "module_setup": module_setup_count,
-                "module_teardown": module_teardown_count,
-                "function_setup": function_setup_count,
-                "function_teardown": function_teardown_count,
-            }))
+        def execution_counts(shared_json_fixture_factory):
+            return shared_json_fixture_factory(
+                "execution_counts",
+                on_first_worker={"test1": 0, "test2": 0}
+            )
+
+        @pytest.fixture(scope="session")
+        def session_fixture(fixture_counts):
+            with fixture_counts.locked_dict() as data:
+                data["session_setup"] += 1
+                setup_count = data["session_setup"]
+
+            fixture_data = {"scope": "session", "data": "session_data", "setup_count": setup_count}
+            yield fixture_data
+
+            with fixture_counts.locked_dict() as data:
+                data["session_teardown"] += 1
 
         @pytest.fixture(scope="module")
-        def module_fixture():
-            global module_setup_count
-            module_setup_count += 1
-            data = {"scope": "module", "data": "module_data", "setup_count": module_setup_count}
-            yield data
-            global module_teardown_count
-            module_teardown_count += 1
+        def module_fixture(fixture_counts):
+            with fixture_counts.locked_dict() as data:
+                data["module_setup"] += 1
+                setup_count = data["module_setup"]
+
+            fixture_data = {"scope": "module", "data": "module_data", "setup_count": setup_count}
+            yield fixture_data
+
+            with fixture_counts.locked_dict() as data:
+                data["module_teardown"] += 1
 
         @pytest.fixture(scope="function")
-        def function_fixture():
-            global function_setup_count
-            function_setup_count += 1
-            data = {"scope": "function", "data": "function_data", "setup_count": function_setup_count}
-            yield data
-            global function_teardown_count
-            function_teardown_count += 1
+        def function_fixture(fixture_counts):
+            with fixture_counts.locked_dict() as data:
+                data["function_setup"] += 1
+                setup_count = data["function_setup"]
 
-        execution_count_test1 = 0
-        execution_count_test2 = 0
+            fixture_data = {"scope": "function", "data": "function_data", "setup_count": setup_count}
+            yield fixture_data
+
+            with fixture_counts.locked_dict() as data:
+                data["function_teardown"] += 1
 
         @weight(1)
-        def test_all_fixture_scopes(request, session_fixture, module_fixture, function_fixture):
-            global execution_count_test1
-            execution_count_test1 += 1
+        def test_all_fixture_scopes(request, session_fixture, module_fixture, function_fixture, fixture_counts, execution_counts):
+            with execution_counts.locked_dict() as data:
+                data["test1"] += 1
+                execution_count_test1 = data["test1"]
+                execution_count_test2 = data["test2"]
 
             # Verify fixtures provide expected data
             assert session_fixture["scope"] == "session"
@@ -126,13 +138,20 @@ def test_all_fixture_scopes(pytester):
             assert module_fixture["setup_count"] == 1, f"Module fixture setup {module_fixture['setup_count']} times, expected 1"
 
             # Module and session should not be torn down yet
-            assert module_teardown_count == 0, f"Module fixture torn down {module_teardown_count} times, expected 0"
-            assert session_teardown_count == 0, f"Session fixture torn down {session_teardown_count} times, expected 0"
+            counts = fixture_counts.read()
+            assert counts["module_teardown"] == 0, f"Module fixture torn down {counts['module_teardown']} times, expected 0"
+            assert counts["session_teardown"] == 0, f"Session fixture torn down {counts['session_teardown']} times, expected 0"
+
+            # Stop after both tests have run at least 3 times each
+            if execution_count_test1 >= 3 and execution_count_test2 >= 3:
+                stop_load_testing(request, f"All fixture scopes verified (test1: {execution_count_test1}, test2: {execution_count_test2})")
 
         @weight(1)
-        def test_function_fixture_reinitialization(request, function_fixture):
-            global execution_count_test2
-            execution_count_test2 += 1
+        def test_function_fixture_reinitialization(request, function_fixture, execution_counts):
+            with execution_counts.locked_dict() as data:
+                data["test2"] += 1
+                execution_count_test1 = data["test1"]
+                execution_count_test2 = data["test2"]
 
             # Verify function fixture provides expected data
             assert function_fixture["scope"] == "function"
@@ -153,7 +172,7 @@ def test_all_fixture_scopes(pytester):
     result.stdout.fnmatch_lines([
         '*Interrupted: All fixture scopes verified (test1: *, test2: *)*',
     ])
-    assert result.ret == 2  # Interrupted exit code
+    assert result.ret == pytest.ExitCode.INTERRUPTED
 
     # Verify from outside pytester that session and module fixtures were torn down exactly once
     import json
