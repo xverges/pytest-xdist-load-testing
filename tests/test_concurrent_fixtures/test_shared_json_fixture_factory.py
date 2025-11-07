@@ -1,4 +1,5 @@
 """Tests for shared_json_fixture_factory using pytester."""
+
 import pytest
 
 
@@ -25,7 +26,7 @@ def test_creates_shared_json(pytester):
             assert my_shared.read() == {'test': 'value'}
     """)
 
-    result = pytester.runpytest('-v')
+    result = pytester.runpytest("-v")
     result.assert_outcomes(passed=1)
 
 
@@ -49,7 +50,7 @@ def test_on_first_worker_dict(pytester):
             assert my_shared.read() == {'initialized': True, 'count': 0}
     """)
 
-    result = pytester.runpytest('-v')
+    result = pytester.runpytest("-v")
     result.assert_outcomes(passed=1)
 
 
@@ -75,7 +76,7 @@ def test_on_first_worker_callable(pytester):
             assert my_shared.read() == {'initialized': True, 'count': 0}
     """)
 
-    result = pytester.runpytest('-v')
+    result = pytester.runpytest("-v")
     result.assert_outcomes(passed=1)
 
 
@@ -103,10 +104,10 @@ def test_on_first_worker_callable_must_return_dict(pytester):
             pass
     """)
 
-    result = pytester.runpytest('-v')
+    result = pytester.runpytest("-v")
     # Should get an error during fixture setup
     result.assert_outcomes(errors=1)
-    result.stdout.fnmatch_lines(['*TypeError*must return a dict*'])
+    result.stdout.fnmatch_lines(["*TypeError*must return a dict*"])
 
 
 def test_on_last_worker_callback(pytester):
@@ -143,7 +144,7 @@ def test_on_last_worker_callback(pytester):
             assert my_shared.read() == {{'count': 5}}
     """)
 
-    result = pytester.runpytest('-v')
+    result = pytester.runpytest("-v")
     result.assert_outcomes(passed=1)
 
     # Verify the callback was actually called by checking for the marker file
@@ -169,7 +170,7 @@ def test_custom_timeout(pytester):
             assert my_shared.timeout == 10
     """)
 
-    result = pytester.runpytest('-v')
+    result = pytester.runpytest("-v")
     result.assert_outcomes(passed=1)
 
 
@@ -189,7 +190,7 @@ def test_default_timeout(pytester):
             assert my_shared.timeout == -1
     """)
 
-    result = pytester.runpytest('-v')
+    result = pytester.runpytest("-v")
     result.assert_outcomes(passed=1)
 
 
@@ -211,7 +212,7 @@ def test_shared_location(pytester):
             assert my_shared.data_file.parent == expected_parent
     """)
 
-    result = pytester.runpytest('-v')
+    result = pytester.runpytest("-v")
     result.assert_outcomes(passed=1)
 
 
@@ -245,10 +246,12 @@ def test_factory_with_xdist_workers(pytester):
                     stop_load_testing(request, f"Completed 20 runs across {len(data['workers'])} workers")
     """)
 
-    result = pytester.runpytest('--load-test', '-n', '2', '-v')
-    result.stdout.fnmatch_lines([
-        '*Interrupted: Completed 20 runs across * workers*',
-    ])
+    result = pytester.runpytest("--load-test", "-n", "2", "-v")
+    result.stdout.fnmatch_lines(
+        [
+            "*Interrupted: Completed 20 runs across * workers*",
+        ]
+    )
     assert result.ret == pytest.ExitCode.INTERRUPTED
 
 
@@ -289,10 +292,12 @@ def test_factory_initialization_race_condition(pytester):
                     stop_load_testing(request, "Verified single initialization")
     """)
 
-    result = pytester.runpytest('--load-test', '-n', '2', '-v')
-    result.stdout.fnmatch_lines([
-        '*Interrupted: Verified single initialization*',
-    ])
+    result = pytester.runpytest("--load-test", "-n", "2", "-v")
+    result.stdout.fnmatch_lines(
+        [
+            "*Interrupted: Verified single initialization*",
+        ]
+    )
     assert result.ret == pytest.ExitCode.INTERRUPTED
 
 
@@ -326,7 +331,7 @@ def test_timeout_on_locked_dict(pytester):
                     pass
     """)
 
-    result = pytester.runpytest('-v')
+    result = pytester.runpytest("-v")
     result.assert_outcomes(passed=1)
 
 
@@ -358,7 +363,7 @@ def test_timeout_on_read(pytester):
                     pass
     """)
 
-    result = pytester.runpytest('-v')
+    result = pytester.runpytest("-v")
     result.assert_outcomes(passed=1)
 
 
@@ -390,7 +395,7 @@ def test_timeout_on_update(pytester):
                     pass
     """)
 
-    result = pytester.runpytest('-v')
+    result = pytester.runpytest("-v")
     result.assert_outcomes(passed=1)
 
 
@@ -436,7 +441,7 @@ def test_infinite_timeout_waits(pytester):
             assert my_shared.read() == {'success': True}
     """)
 
-    result = pytester.runpytest('-v')
+    result = pytester.runpytest("-v")
     result.assert_outcomes(passed=1)
 
 
@@ -472,7 +477,7 @@ def test_zero_timeout_fails_immediately(pytester):
                     assert elapsed < 0.1, f"Should fail immediately, took {elapsed}s"
     """)
 
-    result = pytester.runpytest('-v')
+    result = pytester.runpytest("-v")
     result.assert_outcomes(passed=1)
 
 
@@ -511,8 +516,5 @@ def test_timeout_with_multiple_operations(pytester):
             assert my_shared.read()['count'] == 2
     """)
 
-    result = pytester.runpytest('-v')
+    result = pytester.runpytest("-v")
     result.assert_outcomes(passed=1)
-
-
-# Made with Bob

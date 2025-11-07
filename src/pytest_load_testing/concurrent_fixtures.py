@@ -18,6 +18,7 @@ logger = logging.getLogger(__name__)
 
 # Constants
 INIT_LOCK_TIMEOUT = 30  # seconds for initialization lock acquisition
+SHARED_FILE_PREFIX = "pytest_shared_"  # prefix for shared fixture files
 
 
 class SharedJson:
@@ -50,6 +51,19 @@ class SharedJson:
         self.lock_file = lock_file
         self.timeout = timeout
         self._lock = FileLock(str(lock_file), timeout=timeout)
+
+    @property
+    def name(self) -> str:
+        """Get the name derived from the data file path.
+
+        Returns:
+            str: The stem (filename without extension) of the data file,
+                 with the pytest_shared_ prefix removed if present
+        """
+        stem = self.data_file.stem
+        if stem.startswith(SHARED_FILE_PREFIX):
+            return stem[len(SHARED_FILE_PREFIX) :]
+        return stem
 
     @contextmanager
     def locked_dict(self):
@@ -209,7 +223,7 @@ def shared_json_fixture_factory(request, tmp_path_factory, worker_id):
         Raises:
             filelock.Timeout: If lock cannot be acquired within timeout period
         """
-        base_path = shared_temp / f"pytest_shared_{name}"
+        base_path = shared_temp / f"{SHARED_FILE_PREFIX}{name}"
         data_file = base_path.with_suffix(".json")
         init_marker = base_path.with_name(f"{name}_init.marker")
         data_lock_file = base_path.with_name(f"{name}_data.lock")

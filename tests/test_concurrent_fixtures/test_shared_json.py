@@ -1,4 +1,5 @@
 """Tests for SharedJson class using pytester."""
+
 import pytest
 
 
@@ -24,7 +25,7 @@ def test_locked_dict_creates_file(pytester):
             assert content == {"count": 42}
     """)
 
-    result = pytester.runpytest('-v')
+    result = pytester.runpytest("-v")
     result.assert_outcomes(passed=1)
 
 
@@ -52,7 +53,7 @@ def test_locked_dict_reads_existing_file(pytester):
             assert content == {"count": 15}
     """)
 
-    result = pytester.runpytest('-v')
+    result = pytester.runpytest("-v")
     result.assert_outcomes(passed=1)
 
 
@@ -77,7 +78,7 @@ def test_locked_dict_handles_empty_file(pytester):
             assert content == {"new_key": "value"}
     """)
 
-    result = pytester.runpytest('-v')
+    result = pytester.runpytest("-v")
     result.assert_outcomes(passed=1)
 
 
@@ -115,7 +116,7 @@ def test_locked_dict_supports_dict_operations(pytester):
             }
     """)
 
-    result = pytester.runpytest('-v')
+    result = pytester.runpytest("-v")
     result.assert_outcomes(passed=1)
 
 
@@ -142,7 +143,7 @@ def test_read_returns_copy(pytester):
             assert data2 == {"count": 10}
     """)
 
-    result = pytester.runpytest('-v')
+    result = pytester.runpytest("-v")
     result.assert_outcomes(passed=1)
 
 
@@ -161,7 +162,7 @@ def test_read_empty_file(pytester):
             assert data == {}
     """)
 
-    result = pytester.runpytest('-v')
+    result = pytester.runpytest("-v")
     result.assert_outcomes(passed=1)
 
 
@@ -186,7 +187,7 @@ def test_update_merges_data(pytester):
             assert data == {"a": 1, "b": 20, "c": 30}
     """)
 
-    result = pytester.runpytest('-v')
+    result = pytester.runpytest("-v")
     result.assert_outcomes(passed=1)
 
 
@@ -223,7 +224,7 @@ def test_json_serialization_types(pytester):
             }
     """)
 
-    result = pytester.runpytest('-v')
+    result = pytester.runpytest("-v")
     result.assert_outcomes(passed=1)
 
 
@@ -245,7 +246,31 @@ def test_timeout_parameter(pytester):
             assert shared_default.timeout == -1
     """)
 
-    result = pytester.runpytest('-v')
+    result = pytester.runpytest("-v")
+    result.assert_outcomes(passed=1)
+
+
+def test_name_property_strips_prefix(pytester):
+    """Test that name property returns clean name without pytest_shared_ prefix."""
+    pytester.makeconftest("""
+        pytest_plugins = ['pytest_load_testing.concurrent_fixtures']
+    """)
+    pytester.makepyfile("""
+        import pytest
+
+        @pytest.fixture(scope="session")
+        def my_shared(shared_json_fixture_factory):
+            return shared_json_fixture_factory("my_fixture")
+
+        def test_name_property(my_shared):
+            # Name should be clean without pytest_shared_ prefix
+            assert my_shared.name == "my_fixture"
+
+            # But the actual file should have the prefix
+            assert "pytest_shared_my_fixture" in str(my_shared.data_file)
+    """)
+
+    result = pytester.runpytest("-v")
     result.assert_outcomes(passed=1)
 
 
@@ -282,19 +307,21 @@ def test_concurrent_access_with_xdist(pytester):
                     stop_load_testing(request, "Counter reached 10")
     """)
 
-    result = pytester.runpytest('--load-test', '-n', '2', '-v')
-    result.stdout.fnmatch_lines([
-        '*Interrupted: Counter reached 10*',
-    ])
+    result = pytester.runpytest("--load-test", "-n", "2", "-v")
+    result.stdout.fnmatch_lines(
+        [
+            "*Interrupted: Counter reached 10*",
+        ]
+    )
     assert result.ret == pytest.ExitCode.INTERRUPTED
 
     output = result.stdout.str()
-    assert '[gw0]' in output, "Worker gw0 should have run tests"
-    assert '[gw1]' in output, "Worker gw1 should have run tests"
+    assert "[gw0]" in output, "Worker gw0 should have run tests"
+    assert "[gw1]" in output, "Worker gw1 should have run tests"
 
     # Count how many times each worker appears
-    gw0_count = output.count('[gw0]')
-    gw1_count = output.count('[gw1]')
+    gw0_count = output.count("[gw0]")
+    gw1_count = output.count("[gw1]")
 
     assert gw0_count > 0, f"Worker gw0 should have run at least one test, ran {gw0_count}"
     assert gw1_count > 0, f"Worker gw1 should have run at least one test, ran {gw1_count}"

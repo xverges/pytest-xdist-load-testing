@@ -13,6 +13,7 @@ Example TEST_CODE in docstring:
     assert result.ret == pytest.ExitCode.INTERRUPTED
     ```
 """
+
 import textwrap
 from pathlib import Path
 
@@ -27,15 +28,15 @@ def extract_test_code(file_path):
 
     Returns the test code as a string, or None if not found.
     """
-    with open(file_path, 'r') as f:
+    with open(file_path, "r") as f:
         content = f.read()
 
     # Look for TEST_CODE marker in docstring
-    if 'TEST_CODE:' not in content:
+    if "TEST_CODE:" not in content:
         return None
 
     # Find the docstring
-    lines = content.split('\n')
+    lines = content.split("\n")
     in_docstring = False
     in_test_code = False
     in_code_block = False
@@ -57,13 +58,13 @@ def extract_test_code(file_path):
             continue
 
         # Look for TEST_CODE marker
-        if 'TEST_CODE:' in stripped:
+        if "TEST_CODE:" in stripped:
             in_test_code = True
             continue
 
         if in_test_code:
             # Check for code block markers
-            if '```python' in stripped or '```' in stripped:
+            if "```python" in stripped or "```" in stripped:
                 in_code_block = not in_code_block
                 # If we just closed the code block, we're done
                 if not in_code_block and test_code_lines:
@@ -74,7 +75,7 @@ def extract_test_code(file_path):
             # Collect code lines
             if in_code_block:
                 test_code_lines.append(line)
-            elif stripped and not stripped.startswith('```'):
+            elif stripped and not stripped.startswith("```"):
                 # Also accept non-fenced code (indented)
                 test_code_lines.append(line)
 
@@ -82,7 +83,7 @@ def extract_test_code(file_path):
         return None
 
     # Dedent the code
-    code = '\n'.join(test_code_lines)
+    code = "\n".join(test_code_lines)
     return textwrap.dedent(code).strip()
 
 
@@ -109,9 +110,9 @@ def generate_test_function(example_file):
         # No test code found - create failing test
         def test_missing_code(pytester):
             pytest.fail(
-                f"No TEST_CODE found in {file_name}. "
-                f"Add TEST_CODE section to docstring with test implementation."
+                f"No TEST_CODE found in {file_name}. Add TEST_CODE section to docstring with test implementation."
             )
+
         test_missing_code.__name__ = test_name
         test_missing_code.__doc__ = f"MISSING TEST_CODE: {file_name}"
         return test_missing_code
@@ -123,7 +124,7 @@ def generate_test_function(example_file):
         pytester.copy_example("examples/conftest.py")
 
         # Execute the test code
-        exec(test_code, {'pytester': pytester, 'pytest': pytest})
+        exec(test_code, {"pytester": pytester, "pytest": pytest})
 
     test_from_code.__name__ = test_name
     test_from_code.__doc__ = f"Auto-generated test for {file_name}"
@@ -137,6 +138,3 @@ if _example_files:
         _test_func = generate_test_function(_example_file)
         # Add to module globals so pytest discovers it
         globals()[_test_func.__name__] = _test_func
-
-
-# Made with Bob
