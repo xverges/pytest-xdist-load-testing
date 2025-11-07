@@ -4,9 +4,9 @@ This module provides utilities for creating fixtures that need to share state
 across multiple pytest-xdist workers using file-based JSON storage with FileLock
 for synchronization.
 """
+
 import json
 import logging
-import os
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Any, Callable, Dict, Optional, Set, Union
@@ -76,14 +76,14 @@ class SharedJson:
         """
         with self._lock:
             if self.data_file.exists():
-                with open(self.data_file, 'r') as f:
+                with open(self.data_file, "r") as f:
                     data = json.load(f)
             else:
                 data = {}
 
             yield data
 
-            with open(self.data_file, 'w') as f:
+            with open(self.data_file, "w") as f:
                 json.dump(data, f, indent=2)
 
     def read(self) -> Dict[str, Any]:
@@ -101,7 +101,7 @@ class SharedJson:
         """
         with self._lock:
             if self.data_file.exists():
-                with open(self.data_file, 'r') as f:
+                with open(self.data_file, "r") as f:
                     return json.load(f)
             return {}
 
@@ -179,12 +179,10 @@ def shared_json_fixture_factory(request, tmp_path_factory, worker_id):
             elif callable(on_first_worker):
                 initial_data = on_first_worker()
                 if not isinstance(initial_data, dict):
-                    raise TypeError(
-                        f"on_first_worker callback must return a dict, got {type(initial_data)}"
-                    )
+                    raise TypeError(f"on_first_worker callback must return a dict, got {type(initial_data)}")
 
             data_file.parent.mkdir(parents=True, exist_ok=True)
-            with open(data_file, 'w') as f:
+            with open(data_file, "w") as f:
                 json.dump(initial_data, f, indent=2)
 
     def factory(
@@ -212,7 +210,7 @@ def shared_json_fixture_factory(request, tmp_path_factory, worker_id):
             filelock.Timeout: If lock cannot be acquired within timeout period
         """
         base_path = shared_temp / f"pytest_shared_{name}"
-        data_file = base_path.with_suffix('.json')
+        data_file = base_path.with_suffix(".json")
         init_marker = base_path.with_name(f"{name}_init.marker")
         data_lock_file = base_path.with_name(f"{name}_data.lock")
         init_lock_file = base_path.with_name(f"{name}_init.lock")
@@ -241,25 +239,29 @@ def shared_json_fixture_factory(request, tmp_path_factory, worker_id):
     # Teardown: Determine if this is the last worker and perform cleanup
     # Create a SharedJson to track which workers have finished
     teardown_tracker_path = shared_temp / "pytest_factory_teardown"
-    teardown_data_file = teardown_tracker_path.with_suffix('.json')
+    teardown_data_file = teardown_tracker_path.with_suffix(".json")
     teardown_lock_file = teardown_tracker_path.with_name("teardown.lock")
 
     teardown_tracker = SharedJson(teardown_data_file, teardown_lock_file, timeout=30)
 
-    total_workers = int(os.environ.get('PYTEST_XDIST_WORKER_COUNT', '1'))
+    # Get the actual number of workers from pytest config
+    # The workerinput plugin option contains worker count info
+    total_workers = getattr(request.config, "workerinput", {}).get("workercount", 1)
+    if total_workers is None:
+        total_workers = 1
 
     # Track this worker's teardown
     with teardown_tracker.locked_dict() as data:
-        if 'finished_workers' not in data:
-            data['finished_workers'] = []
-            data['total_workers'] = total_workers
+        if "finished_workers" not in data:
+            data["finished_workers"] = []
+            data["total_workers"] = total_workers
 
         # Add this worker if not already tracked
-        if worker_id not in data['finished_workers']:
-            data['finished_workers'].append(worker_id)
+        if worker_id not in data["finished_workers"]:
+            data["finished_workers"].append(worker_id)
 
         # Check if this is the last worker
-        is_last = len(data['finished_workers']) >= data['total_workers']
+        is_last = len(data["finished_workers"]) >= data["total_workers"]
 
     if is_last:
         for shared_json, callback in last_worker_callbacks:
