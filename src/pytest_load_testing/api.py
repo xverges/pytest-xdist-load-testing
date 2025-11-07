@@ -50,4 +50,3 @@ def stop_load_testing(
     """
     request.session.shouldstop = message
     request.node.user_properties.append((LOAD_TEST_STOP_SIGNAL, message))
-

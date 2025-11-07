@@ -10,4 +10,3 @@ __all__ = [
     "shared_json_fixture_factory",
     "SharedJson",
 ]
-

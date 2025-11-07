@@ -1,8 +1,6 @@
 """Test for race condition in last worker detection.
 """
 import pytest
-from pathlib import Path
-import time
 
 
 def test_last_worker_callback_runs_exactly_once(pytester):
@@ -141,9 +139,9 @@ def test_last_worker_detection_with_delayed_workers(pytester):
 
     # Should be exactly 1 callback execution
     assert len(log_lines) == 1, (
-        f"Expected 1 callback execution, got {{len(log_lines)}}. "
-        f"Log entries: {{log_lines}}. This indicates the race condition "
-        f"where multiple workers executed the on_last_worker callback."
+        f"Expected 1 callback execution, got {len(log_lines)}. "
+        f"Log entries: {log_lines}. This indicates the race condition "
+        "where multiple workers executed the on_last_worker callback."
     )
 
 
@@ -203,7 +201,7 @@ def test_race_condition_with_exact_worker_count(pytester):
     execution_count = int(callback_marker.read_text())
 
     assert execution_count == 1, (
-        f"Callback executed {{execution_count}} times instead of 1. "
-        f"The race condition allowed multiple workers to pass the "
-        f"'is_last' check (len(finished_workers) >= total_workers)."
+        f"Callback executed {execution_count} times instead of 1. "
+        "The race condition allowed multiple workers to pass the "
+        "'is_last' check (len(finished_workers) >= total_workers)."
     )

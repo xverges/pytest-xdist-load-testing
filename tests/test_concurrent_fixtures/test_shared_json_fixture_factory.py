@@ -1,6 +1,5 @@
 """Tests for shared_json_fixture_factory using pytester."""
 import pytest
-from pathlib import Path
 
 
 def test_creates_shared_json(pytester):

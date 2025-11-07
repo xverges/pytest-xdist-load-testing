@@ -1,5 +1,6 @@
 """Tests for pytest-xdist-load-testing plugin."""
 import pytest
+
 from pytest_load_testing.api import weight
 from pytest_load_testing.scheduler import LoadTestScheduler
 
@@ -67,13 +68,15 @@ def test_scheduler_add_node(pytester):
     # Create a mock node
     class MockNode:
         shutting_down = False
+
         def send_runtest_some(self, indices):
             pass
+
         def shutdown(self):
             pass
 
     node = MockNode()
-    scheduler.add_node(node) # pyright: ignore
+    scheduler.add_node(node)  # pyright: ignore
 
     assert node in scheduler.node2pending
     assert scheduler.node2pending[node] == []
@@ -155,8 +158,6 @@ def test_multiple_weighted_tests(pytester):
     assert result.ret == pytest.ExitCode.INTERRUPTED
 
 
-
-
 def test_weight_with_parametrize(pytester):
     """Test that weight decorator works with parametrized tests."""
     pytester.makepyfile("""
@@ -193,13 +194,15 @@ def test_scheduler_remove_node(pytester):
     # Create a mock node
     class MockNode:
         shutting_down = False
+
         def send_runtest_some(self, indices):
             pass
+
         def shutdown(self):
             pass
 
     node = MockNode()
-    scheduler.add_node(node)
+    scheduler.add_node(node)  # type: ignore[arg-type]
     assert node in scheduler.node2pending
 
     scheduler.remove_node(node)
@@ -273,5 +276,3 @@ def test_stop_load_testing_with_session(pytester):
     result.stdout.fnmatch_lines([
         '*Interrupted: Stopping after this test*',
     ])
-
-

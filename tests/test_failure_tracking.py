@@ -1,5 +1,7 @@
 """Tests for failure tracking functionality."""
+
 import time
+
 import pytest
 
 
@@ -12,6 +14,7 @@ def test_failure_tracking_initialization(pytester):
     config = pytester.parseconfigure("--tx", "2*popen")
 
     from pytest_load_testing.scheduler import LoadTestScheduler
+
     scheduler = LoadTestScheduler(config, None)
 
     assert isinstance(scheduler.test_passes, dict)
@@ -31,6 +34,7 @@ def test_mark_test_failed_increments_counter(pytester):
     config = pytester.parseconfigure("--tx", "2*popen")
 
     from pytest_load_testing.scheduler import LoadTestScheduler
+
     scheduler = LoadTestScheduler(config, None)
     scheduler.collection = ["test_example.py::test_one"]
 
@@ -54,6 +58,7 @@ def test_mark_test_passed_increments_counter(pytester):
     config = pytester.parseconfigure("--tx", "2*popen")
 
     from pytest_load_testing.scheduler import LoadTestScheduler
+
     scheduler = LoadTestScheduler(config, None)
     scheduler.collection = ["test_example.py::test_one"]
 
@@ -77,6 +82,7 @@ def test_mark_test_passed_updates_last_success_time(pytester):
     config = pytester.parseconfigure("--tx", "2*popen")
 
     from pytest_load_testing.scheduler import LoadTestScheduler
+
     scheduler = LoadTestScheduler(config, None)
     scheduler.collection = ["test_example.py::test_one"]
 
@@ -104,12 +110,9 @@ def test_multiple_tests_tracked_independently(pytester):
     config = pytester.parseconfigure("--tx", "2*popen")
 
     from pytest_load_testing.scheduler import LoadTestScheduler
+
     scheduler = LoadTestScheduler(config, None)
-    scheduler.collection = [
-        "test_example.py::test_one",
-        "test_example.py::test_two",
-        "test_example.py::test_three"
-    ]
+    scheduler.collection = ["test_example.py::test_one", "test_example.py::test_two", "test_example.py::test_three"]
 
     # Mark different tests with different outcomes
     scheduler.mark_test_passed("test_example.py::test_one")
@@ -139,6 +142,7 @@ def test_last_success_time_updates_on_subsequent_passes(pytester):
     config = pytester.parseconfigure("--tx", "2*popen")
 
     from pytest_load_testing.scheduler import LoadTestScheduler
+
     scheduler = LoadTestScheduler(config, None)
     scheduler.collection = ["test_example.py::test_one"]
 
@@ -166,6 +170,7 @@ def test_tracking_without_collection_does_nothing(pytester):
     config = pytester.parseconfigure("--tx", "2*popen")
 
     from pytest_load_testing.scheduler import LoadTestScheduler
+
     scheduler = LoadTestScheduler(config, None)
     scheduler.collection = None
 
@@ -188,6 +193,7 @@ def test_mixed_pass_fail_sequence(pytester):
     config = pytester.parseconfigure("--tx", "2*popen")
 
     from pytest_load_testing.scheduler import LoadTestScheduler
+
     scheduler = LoadTestScheduler(config, None)
     scheduler.collection = ["test_example.py::test_one"]
 
@@ -265,38 +271,41 @@ def test_failure_tracking_integration(pytester):
             assert True
     """)
 
-    result = pytester.runpytest('--load-test', '-n', '2', '-v')
+    result = pytester.runpytest("--load-test", "-n", "2", "-v")
 
     # Verify tests ran and load testing stopped
-    result.stdout.fnmatch_lines([
-        '*Interrupted: Test complete*',
-    ])
+    result.stdout.fnmatch_lines(
+        [
+            "*Interrupted: Test complete*",
+        ]
+    )
     assert result.ret == pytest.ExitCode.INTERRUPTED
 
     # Verify tracking data was captured
     import json
-    tracking_file = pytester.path / 'tracking_data.json'
+
+    tracking_file = pytester.path / "tracking_data.json"
     assert tracking_file.exists(), "Tracking data file should exist"
 
     with open(tracking_file) as f:
         tracking_data = json.load(f)
 
     # Verify both tests were tracked
-    assert len(tracking_data['test_passes']) > 0, "Should have pass tracking"
-    assert len(tracking_data['test_failures']) > 0, "Should have failure tracking"
+    assert len(tracking_data["test_passes"]) > 0, "Should have pass tracking"
+    assert len(tracking_data["test_failures"]) > 0, "Should have failure tracking"
 
     # Verify test_failing had failures
-    failing_test_key = [k for k in tracking_data['test_failures'].keys() if 'test_failing' in k]
+    failing_test_key = [k for k in tracking_data["test_failures"].keys() if "test_failing" in k]
     assert len(failing_test_key) == 1, "Should track test_failing"
-    assert tracking_data['test_failures'][failing_test_key[0]] >= 2, "test_failing should have at least 2 failures"
+    assert tracking_data["test_failures"][failing_test_key[0]] >= 2, "test_failing should have at least 2 failures"
 
     # Verify test_passing had passes
-    passing_test_key = [k for k in tracking_data['test_passes'].keys() if 'test_passing' in k]
+    passing_test_key = [k for k in tracking_data["test_passes"].keys() if "test_passing" in k]
     assert len(passing_test_key) == 1, "Should track test_passing"
-    assert tracking_data['test_passes'][passing_test_key[0]] >= 3, "test_passing should have at least 3 passes"
+    assert tracking_data["test_passes"][passing_test_key[0]] >= 3, "test_passing should have at least 3 passes"
 
     # Verify last_success_time was updated for passing test
-    assert len(tracking_data['has_last_success_time']) > 0, "Should have last success timestamps"
-    assert any('test_passing' in k for k in tracking_data['has_last_success_time']), "test_passing should have last success time"
-
-# Made with Bob
+    assert len(tracking_data["has_last_success_time"]) > 0, "Should have last success timestamps"
+    assert any("test_passing" in k for k in tracking_data["has_last_success_time"]), (
+        "test_passing should have last success time"
+    )

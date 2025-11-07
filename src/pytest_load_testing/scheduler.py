@@ -296,7 +296,7 @@ class LoadTestScheduler(LoadScheduling):
 
         session = self.config.stash.get(stash_key_session, None)
         if session is not None:
-           session.shouldstop = reason
+            session.shouldstop = reason
 
         # Shutdown all nodes
         for node in self.nodes:

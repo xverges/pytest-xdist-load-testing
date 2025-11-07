@@ -1,5 +1,6 @@
 """pytest-xdist-load-testing plugin implementation."""
 import logging
+
 import pytest
 
 from .constants import (
@@ -9,6 +10,7 @@ from .constants import (
     stash_key_session,
 )
 from .scheduler import LoadTestScheduler
+
 
 class LoadTestPlugin:
     """
@@ -148,7 +150,6 @@ class LoadTestPlugin:
                         # Clear the cached result to force re-execution
                         setattr(fixture_def, CACHED_RESULT, None)
 
-
     @pytest.hookimpl(tryfirst=True)
     def pytest_runtest_logreport(self, report: pytest.TestReport):
         """
@@ -225,5 +226,3 @@ def pytest_addoption(parser):
         default=False,
         help='Enable load testing mode with continuous test execution.'
     )
-
-

@@ -176,7 +176,6 @@ def test_all_fixture_scopes(pytester):
 
     # Verify from outside pytester that session and module fixtures were torn down exactly once
     import json
-    from pathlib import Path
 
     fixture_counts_file = pytester.path / "fixture_counts.json"
     assert fixture_counts_file.exists(), "fixture_counts.json should exist after test completion"

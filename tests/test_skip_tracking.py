@@ -1,5 +1,6 @@
 """Tests for skip detection and prevention in load testing."""
 import pytest
+
 from pytest_load_testing.scheduler import LoadTestScheduler
 
 
@@ -43,8 +44,10 @@ def test_skipped_tests_not_rescheduled(pytester):
     # Create a mock node
     class MockNode:
         shutting_down = False
+
         def send_runtest_some(self, indices):
             self.sent_indices = indices
+
         def shutdown(self):
             pass
 
@@ -81,8 +84,10 @@ def test_all_tests_skipped_stops_scheduler(pytester):
     # Create a mock node
     class MockNode:
         shutting_down = False
+
         def send_runtest_some(self, indices):
             self.sent_indices = indices
+
         def shutdown(self):
             pass
 
@@ -199,6 +204,7 @@ def test_skip_idempotent(pytester):
     # Weight should still be 0
     assert scheduler.weights[0] == 0
 
+
 def test_all_tests_eventually_skip(pytester):
     """Test that scheduler stops when all tests start skipping after iterations."""
     pytester.makeconftest("""
@@ -292,8 +298,10 @@ def test_all_tests_weight_zero_unit(pytester):
     # Create a mock node
     class MockNode:
         shutting_down = False
+
         def send_runtest_some(self, indices):
             self.sent_indices = indices
+
         def shutdown(self):
             pass
 
@@ -306,4 +314,3 @@ def test_all_tests_weight_zero_unit(pytester):
 
     # Verify the exit message
     assert "skipped" in str(exc_info.value).lower()
-

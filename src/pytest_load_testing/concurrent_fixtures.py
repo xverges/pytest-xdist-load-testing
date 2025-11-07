@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import Any, Callable, Dict, Optional, Set, Union
 
 import pytest
-from filelock import FileLock, Timeout
+from filelock import FileLock
 
 logger = logging.getLogger(__name__)
 

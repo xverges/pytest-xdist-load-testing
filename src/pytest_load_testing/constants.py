@@ -10,4 +10,3 @@ stash_key_has_been_run = pytest.StashKey[bool]()
 
 # User property key for stop signal (used by public API)
 LOAD_TEST_STOP_SIGNAL = "load_test_stop"
-
