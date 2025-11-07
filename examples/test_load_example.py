@@ -7,67 +7,46 @@ This demonstrates:
 1. Weighted test selection (tests run with different frequencies)
 2. Shared state tracking across workers using shared_json_fixture_factory
 3. Conditional stopping based on shared state
+4. Automatic execution report at session end
 
 TEST_CODE:
 ```python
 result = pytester.runpytest('--load-test', '-n', '2', '-v')
 result.stdout.fnmatch_lines([
-    '*Interrupted: System health critical*',
+    '*Interrupted: Test session completed*',
 ])
 assert result.ret == pytest.ExitCode.INTERRUPTED
 ```
 """
 
-import logging
-import sys
-
 import pytest
 
 from pytest_load_testing import stop_load_testing, weight
 
-logger = logging.getLogger(__name__)
-
 
 @pytest.fixture(scope="session")
-def progress_tracker(request, shared_json_fixture_factory):
+def progress_tracker(shared_json_fixture_factory):
     """Track errors across all workers."""
-
-    def on_last_worker(shared):
-        """Called once by the last worker to finish."""
-        # Read the data that was collected during test execution
-        data = shared.read()
-
-        # Write to a file to prove callback executed
-        with open("/tmp/load_test_report.txt", "w") as f:
-            f.write("=" * 60 + "\n")
-            f.write("LOAD TEST REPORT\n")
-            f.write("=" * 60 + "\n")
-            f.write(f"Total test executions: {data.get('count', 0)}\n")
-            f.write("=" * 60 + "\n")
-
-        # Also write to stderr
-        report = []
-        report.append("\n" + "=" * 60)
-        report.append("LOAD TEST REPORT")
-        report.append("=" * 60)
-        report.append(f"\nTotal test executions: {data.get('count', 0)}")
-        report.append("=" * 60 + "\n")
-        sys.stderr.write("\n".join(report))
-        sys.stderr.flush()
-
-    return shared_json_fixture_factory(name="counter", on_first_worker={"count": 0}, on_last_worker=on_last_worker)
+    return shared_json_fixture_factory(name="progress", on_first_worker={"count": 0, "results_by_node": {}})
 
 
 @pytest.fixture
 def iteration_counter(request, progress_tracker):
     """Common fixture that tracks iterations and stops after threshold."""
+    node_id = request.node.nodeid
+
     with progress_tracker.locked_dict() as data:
         data["count"] = data.get("count", 0) + 1
         current_count = data["count"]
 
-    # Stop after 20 total test executions across all workers
+        # Track results by node id
+        results_by_node = data.get("results_by_node", {})
+        results_by_node[node_id] = results_by_node.get(node_id, 0) + 1
+        data["results_by_node"] = results_by_node
+
+    # Stop after 100 total test executions across all workers
     if current_count >= 100:
-        stop_load_testing(request, "System health critical")
+        stop_load_testing(request, "Test session completed")
 
 
 @weight(70)

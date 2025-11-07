@@ -1,4 +1,5 @@
 """pytest-xdist-load-testing plugin implementation."""
+
 import logging
 
 import pytest
@@ -73,7 +74,6 @@ class LoadTestPlugin:
 
         # If item has been run before, we need to clear fixtures for re-execution
         if has_been_run and request_obj is not None:  # type: ignore[attr-defined]
-
             self._cleanup_previous_run(item)
 
         # Get ready for next time
@@ -92,7 +92,6 @@ class LoadTestPlugin:
             item.user_properties.append((LoadTestPlugin.WEIGHT_PROPERTY_KEY, weight_value))
 
     def _cleanup_previous_run(self, item: pytest.Item) -> None:
-
         setupstate = item.session._setupstate
 
         # If item is in stack, run its teardown functions first
@@ -164,7 +163,7 @@ class LoadTestPlugin:
             return
 
         # Check for stop signal and weight in user_properties
-        if hasattr(report, 'user_properties'):
+        if hasattr(report, "user_properties"):
             for key, value in report.user_properties:
                 if key == LOAD_TEST_STOP_SIGNAL and isinstance(value, str):
                     scheduler.stop(value)
@@ -194,6 +193,13 @@ class LoadTestPlugin:
 
     def pytest_sessionfinish(self, session: pytest.Session, exitstatus: int):
         """Hook called after whole test run finished, right before returning exit status."""
+        # Print load test statistics if enabled
+        if self.is_enabled(session.config):
+            scheduler = session.config.stash.get(stash_key_scheduler, None)
+            if scheduler:
+                # Use stderr=False (logger) by default, can be changed to True for stderr output
+                scheduler.print_final_statistics(use_stderr=True)
+
         if stash_key_session in session.config.stash:
             del session.config.stash[stash_key_session]
 
@@ -206,8 +212,7 @@ def pytest_configure(config: pytest.Config):
     """
     # Register custom markers
     config.addinivalue_line(
-        "markers",
-        "weight(value): Set the weight of a test for load testing (higher = more likely to be selected)"
+        "markers", "weight(value): Set the weight of a test for load testing (higher = more likely to be selected)"
     )
 
     # Only register plugin instance if load testing is enabled
@@ -218,11 +223,11 @@ def pytest_configure(config: pytest.Config):
 
 def pytest_addoption(parser):
     """Add plugin-specific command line options."""
-    group = parser.getgroup('xdist-load-testing')
+    group = parser.getgroup("xdist-load-testing")
     group.addoption(
-        '--load-test',
-        action='store_true',
+        "--load-test",
+        action="store_true",
         dest=LoadTestPlugin.PYTEST_OPTION_NAME,
         default=False,
-        help='Enable load testing mode with continuous test execution.'
+        help="Enable load testing mode with continuous test execution.",
     )

@@ -1,7 +1,10 @@
 """Load testing scheduler implementation."""
+
 import logging
 import random
+import sys
 import time
+from dataclasses import dataclass
 from typing import Any, Optional
 
 import pytest
@@ -11,6 +14,21 @@ from xdist.workermanage import WorkerController
 from .constants import stash_key_session
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class TestStatistic:
+    """Statistics for a single test's execution."""
+
+    nodeid: str
+    total: int
+    passes: int
+    failures: int
+
+    @property
+    def failure_rate(self) -> float:
+        """Calculate the failure rate for this test."""
+        return self.failures / self.total if self.total > 0 else 0.0
 
 
 class LoadTestScheduler(LoadScheduling):
@@ -31,6 +49,7 @@ class LoadTestScheduler(LoadScheduling):
         Compatible with xdist's Producer interface but routes messages through
         Python's logging system.
         """
+
         def __init__(self, name: str, *, enabled: bool = True) -> None:
             self.name = name
             self.enabled = enabled
@@ -168,11 +187,7 @@ class LoadTestScheduler(LoadScheduling):
         # Select 'num' tests randomly with weights
         # Tests with weight 0 will never be selected
         try:
-            selected_indices = random.choices(
-                range(len(self.collection)),
-                weights=self.weights,
-                k=num
-            )
+            selected_indices = random.choices(range(len(self.collection)), weights=self.weights, k=num)
         except ValueError:
             # This shouldn't happen if we checked for all-zero weights above
             self.log("Error selecting tests with weights, stopping scheduler")
@@ -215,9 +230,7 @@ class LoadTestScheduler(LoadScheduling):
         for node in self.nodes:
             self.check_schedule(node)
 
-    def mark_test_complete(
-        self, node: WorkerController, item_index: int, duration: float = 0
-    ) -> None:
+    def mark_test_complete(self, node: WorkerController, item_index: int, duration: float = 0) -> None:
         """Called when a test completes - schedule more work."""
         # Call parent, which will call check_schedule
         super().mark_test_complete(node, item_index, duration)
@@ -286,6 +299,48 @@ class LoadTestScheduler(LoadScheduling):
         if pending:
             # Return the first item that was running
             return self.collection[pending[0]] if self.collection else None
+
+    def _calculate_test_statistics(self) -> list[TestStatistic]:
+        """Calculate execution statistics for all tests."""
+        all_tests = set(self.test_passes.keys()) | set(self.test_failures.keys())
+        stats = []
+
+        for nodeid in all_tests:
+            passes = self.test_passes.get(nodeid, 0)
+            failures = self.test_failures.get(nodeid, 0)
+            stats.append(TestStatistic(nodeid, passes + failures, passes, failures))
+
+        return sorted(stats, key=lambda x: x.total, reverse=True)
+
+    def _format_statistics_report(self, stats: list[TestStatistic]) -> list[str]:
+        """Format statistics into report lines."""
+        SEPARATOR_WIDTH = 70
+        total_executions = sum(s.total for s in stats)
+
+        lines = [
+            "=" * SEPARATOR_WIDTH,
+            "Load Test Execution Report",
+            "=" * SEPARATOR_WIDTH,
+        ]
+
+        for stat in stats:
+            status = f"✓ {stat.passes} ✗ {stat.failures}"
+            lines.append(f"{stat.nodeid}: {stat.total} executions ({status})")
+
+        lines.append(f"Total executions: {total_executions}")
+        lines.append("=" * SEPARATOR_WIDTH)
+
+        return lines
+
+    def _output_report(self, lines: list[str], use_stderr: bool = False) -> None:
+        """Output report lines to stderr or logger."""
+        if use_stderr:
+            sys.stderr.write("\n" + "\n".join(lines) + "\n")
+            sys.stderr.flush()
+        else:
+            for line in lines:
+                logger.info(line)
+
         return None
 
     def stop(self, reason: str = "Interrupted"):
@@ -302,3 +357,16 @@ class LoadTestScheduler(LoadScheduling):
         for node in self.nodes:
             if not node.shutting_down:
                 node.shutdown()
+
+    def print_final_statistics(self, use_stderr: bool = False) -> None:
+        """Print test execution statistics at the end of the session.
+
+        Args:
+            use_stderr: If True, write to stderr. If False, use logger.info (default).
+        """
+        if not self.test_passes and not self.test_failures:
+            return
+
+        stats = self._calculate_test_statistics()
+        lines = self._format_statistics_report(stats)
+        self._output_report(lines, use_stderr)
