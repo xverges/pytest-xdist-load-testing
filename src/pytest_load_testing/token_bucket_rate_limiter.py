@@ -137,24 +137,6 @@ class TokenBucketRateLimiter:
         rate = self._hourly_rate() if callable(self._hourly_rate) else self._hourly_rate
         return rate.calls_per_hour
 
-    def _get_or_initialize_state(self) -> Dict[str, Any]:
-        """Get the current state, initializing if necessary."""
-        with self.shared_state.locked_dict() as state:
-            if not state:
-                current_time = time.time()
-                state.update(
-                    {
-                        "start_time": current_time,
-                        "last_refill_time": current_time,
-                        "tokens": self.burst_capacity,  # Start with full bucket
-                        "call_count": 0,
-                        "exceptions": 0,
-                    }
-                )
-
-            # Return a copy to avoid modifications outside the lock
-            return dict(state)
-
     def _check_rate(self, state: Dict[str, Any]) -> None:
         """Check if the current rate is within acceptable limits."""
         current_time = time.time()
@@ -228,16 +210,20 @@ class TokenBucketRateLimiter:
             # Update tokens (can't exceed burst capacity)
             tokens = min(state["tokens"] + new_tokens, self.burst_capacity)
 
-            # If we have at least 1 token, we can proceed immediately
+            # Always consume 1 token immediately, even if it makes tokens negative
+            # This ensures proper serialization across multiple threads/processes
+            # Negative tokens represent a "debt" that must be paid back with wait time
+            state["tokens"] = tokens - 1
+            state["last_refill_time"] = current_time
+
+            # If we had at least 1 token, we can proceed immediately
             if tokens >= 1:
-                # Consume 1 token and update the state
-                state["tokens"] = tokens - 1
-                state["last_refill_time"] = current_time
                 return 0
 
-            # Calculate wait time until we have 1 token
-            wait_time = (1 - tokens) / tokens_per_second
-            return max(0, wait_time)
+            # Calculate wait time to pay back the token debt
+            # We need to wait until tokens would have refilled to 0
+            wait_time = abs(state["tokens"]) / tokens_per_second
+            return wait_time
 
     def _increment_call_count_and_check_rate(self) -> Tuple[int, Dict[str, Any]]:
         """
@@ -275,6 +261,13 @@ class TokenBucketRateLimiter:
     class RateLimitContext:
         """
         Context object yielded by rate_limited_context that provides access to rate limiter metrics.
+
+        Properties:
+            id: Rate limiter identifier
+            hourly_rate: Configured rate limit in calls per hour
+            call_count: Total number of calls made
+            exceptions: Total number of exceptions encountered
+            start_time: Unix timestamp of when the first call was made
         """
 
         _limiter: "TokenBucketRateLimiter"
@@ -296,6 +289,11 @@ class TokenBucketRateLimiter:
         def exceptions(self) -> int:
             return self._state["exceptions"]
 
+        @property
+        def start_time(self) -> float:
+            """Timestamp of when the first call was made (Unix timestamp)."""
+            return self._state["start_time"]
+
     @contextlib.contextmanager
     def rate_limited_context(self) -> Generator[RateLimitContext, Any, None]:
         """
@@ -305,6 +303,7 @@ class TokenBucketRateLimiter:
             with rate_limiter.rate_limited_context() as ctx:
                 print(f"Using rate limiter {ctx.id} with rate {ctx.hourly_rate}/hr")
                 print(f"Current call count: {ctx.call_count}")
+                print(f"First call at: {ctx.start_time}")
                 perform_action()
         """
         # Calculate wait time and update tokens atomically
