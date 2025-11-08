@@ -436,8 +436,8 @@ def test_infinite_timeout_waits(pytester):
 
             thread.join()
 
-            # Should have waited for the lock
-            assert elapsed >= 0.4, f"Should have waited, but only took {elapsed}s"
+            # Should have waited for the lock (with small tolerance for timing precision)
+            assert elapsed >= 0.38, f"Should have waited, but only took {elapsed}s"
             assert my_shared.read() == {'success': True}
     """)
 

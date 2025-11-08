@@ -246,6 +246,209 @@ The factory handles worker coordination automatically:
 3. **Last Worker**: Executes `on_last_worker` callback during teardown
 4. **Cleanup**: Last worker removes all temporary files
 
+## Rate Limiting
+
+The plugin provides a [`rate_limiter_fixture_factory`](../src/pytest_load_testing/concurrent_fixtures.py:305) for enforcing rate limits across pytest-xdist workers. This is essential for load testing scenarios where you need to respect API rate limits or simulate realistic traffic patterns.
+
+### Overview
+
+The rate limiter uses the **token bucket algorithm**, which allows controlled bursts of activity while maintaining an average rate over time. State is synchronized across all workers using file-based locking.
+
+### Basic Usage
+
+```python
+import pytest
+from pytest_load_testing import weight
+from pytest_load_testing.token_bucket_rate_limiter import RateLimit
+
+@pytest.fixture(scope="session")
+def api_limiter(rate_limiter_fixture_factory):
+    """Rate limiter for API calls."""
+    return rate_limiter_fixture_factory(
+        name="api_limiter",
+        hourly_rate=RateLimit.per_second(10)  # 10 calls per second
+    )
+
+@weight(1)
+def test_api_call(api_limiter):
+    with api_limiter.rate_limited_context() as ctx:
+        # Context entry waits if rate limit would be exceeded
+        response = api.get("/data")
+        assert response.status_code == 200
+        assert ctx.call_count >= 1
+```
+
+### Rate Limit Helpers
+
+The `RateLimit` class provides convenient factory methods:
+
+```python
+RateLimit.per_second(10)   # 10 calls per second (36,000/hour)
+RateLimit.per_minute(600)  # 600 calls per minute (36,000/hour)
+RateLimit.per_hour(3600)   # 3600 calls per hour
+RateLimit.per_day(86400)   # 86400 calls per day (3,600/hour)
+```
+
+### Factory Parameters
+
+```python
+rate_limiter_fixture_factory(
+    name: str,                                    # Unique identifier
+    hourly_rate: Union[RateLimit, Callable],      # Rate limit specification
+    max_drift: float = 0.1,                       # Max deviation (0-1)
+    on_drift_callback: Optional[Callable] = None, # Drift detection callback
+    num_calls_between_checks: int = 10,           # Calls between rate checks
+    seconds_before_first_check: float = 60.0,     # Delay before first check
+    burst_capacity: Optional[int] = None,         # Max burst size
+    max_calls: int = -1,                          # Total call limit
+    max_call_callback: Optional[Callable] = None  # Max calls callback
+)
+```
+
+### Advanced Examples
+
+#### Rate Limiting with Drift Detection
+
+Stop tests if actual rate exceeds target by more than 20%:
+
+```python
+import pytest
+from pytest_load_testing import weight, stop_load_testing
+from pytest_load_testing.token_bucket_rate_limiter import RateLimit
+
+@pytest.fixture(scope="session")
+def monitored_api(rate_limiter_fixture_factory, request):
+    """API limiter with drift detection."""
+    
+    def on_drift(limiter_id, current_rate, target_rate, drift):
+        """Stop testing when drift exceeds threshold."""
+        message = (
+            f"Rate drift for {limiter_id} exceeds maximum: "
+            f"current={current_rate:.2f}/hr, target={target_rate}/hr, "
+            f"drift={drift:.2%}"
+        )
+        stop_load_testing(request, message)
+    
+    return rate_limiter_fixture_factory(
+        name="monitored_api",
+        hourly_rate=RateLimit.per_second(100),
+        max_drift=0.2,  # 20% tolerance
+        num_calls_between_checks=50,
+        seconds_before_first_check=5.0,
+        on_drift_callback=on_drift
+    )
+
+@weight(1)
+def test_api_with_monitoring(monitored_api):
+    with monitored_api.rate_limited_context() as ctx:
+        response = api.get("/data")
+        assert response.status_code == 200
+```
+
+#### Rate Limiting with Max Calls
+
+Limit total number of calls and stop when reached:
+
+```python
+@pytest.fixture(scope="session")
+def limited_api(rate_limiter_fixture_factory, request):
+    """API limiter with max calls."""
+    
+    def on_max_calls(limiter_id, count):
+        """Stop when max calls reached."""
+        stop_load_testing(request, f"Max calls reached: {count}")
+    
+    return rate_limiter_fixture_factory(
+        name="limited_api",
+        hourly_rate=RateLimit.per_minute(600),
+        max_calls=1000,
+        max_call_callback=on_max_calls
+    )
+
+@weight(1)
+def test_limited_api(limited_api):
+    with limited_api.rate_limited_context():
+        response = api.post("/data", json={"key": "value"})
+        assert response.status_code == 201
+```
+
+#### Dynamic Rate Limiting
+
+Adjust rate limits dynamically during test execution:
+
+```python
+@pytest.fixture(scope="session")
+def adaptive_limiter(rate_limiter_fixture_factory):
+    """Rate limiter with dynamic rate adjustment."""
+    current_rate = [RateLimit.per_second(10)]
+    
+    def get_rate():
+        return current_rate[0]
+    
+    limiter = rate_limiter_fixture_factory(
+        name="adaptive",
+        hourly_rate=get_rate
+    )
+    limiter.rate_control = current_rate
+    return limiter
+
+@weight(1)
+def test_with_rate_change(adaptive_limiter):
+    # Increase rate for this test
+    adaptive_limiter.rate_control[0] = RateLimit.per_second(20)
+    
+    with adaptive_limiter.rate_limited_context():
+        response = api.get("/data")
+        assert response.status_code == 200
+```
+
+#### Burst Capacity Control
+
+Allow bursts above average rate:
+
+```python
+@pytest.fixture(scope="session")
+def bursty_api(rate_limiter_fixture_factory):
+    """API limiter allowing bursts."""
+    return rate_limiter_fixture_factory(
+        name="bursty_api",
+        hourly_rate=RateLimit.per_second(10),
+        burst_capacity=50  # Allow bursts up to 50 calls
+    )
+
+@weight(1)
+def test_burst_handling(bursty_api):
+    # Can make rapid calls up to burst capacity
+    with bursty_api.rate_limited_context():
+        response = api.get("/data")
+        assert response.status_code == 200
+```
+
+### Context Manager Details
+
+The `rate_limited_context()` context manager:
+
+- **Waits** if necessary to respect the rate limit before entering
+- **Tracks** call count, exceptions, and timing
+- **Yields** a progress object with attributes:
+  - `id`: The limiter name
+  - `call_count`: Total calls made
+  - `exceptions`: Total exceptions encountered
+  - `start_time`: When rate limiting started (timestamp)
+  - `hourly_rate`: Current rate limit in calls per hour
+
+```python
+with api_limiter.rate_limited_context() as ctx:
+    print(f"Limiter: {ctx.id}")
+    print(f"Call count: {ctx.call_count}")
+    print(f"Rate: {ctx.hourly_rate} calls/hour")
+    # Make your API call here
+```
+
+### Thread Safety
+
+All rate limiter state is synchronized across workers using file-based locking via `SharedJson`. Multiple workers can safely share the same rate limiter instance without race conditions.
+
 ## License
 
 MIT License - see LICENSE file for details.

@@ -1,4 +1,5 @@
 """Public API for pytest-xdist-load-testing."""
+
 import pytest
 
 from .constants import LOAD_TEST_STOP_SIGNAL
@@ -26,10 +27,7 @@ def weight(value: int):
     return pytest.mark.weight(value)
 
 
-def stop_load_testing(
-    request: pytest.FixtureRequest,
-    message: str = "Test requested stop"
-):
+def stop_load_testing(request: pytest.FixtureRequest, message: str = "Test requested stop"):
     """
     Function to stop the load testing scheduler gracefully.
 
@@ -49,4 +47,6 @@ def stop_load_testing(
                 stop_load_testing(request, "Stopping due to condition")
     """
     request.session.shouldstop = message
-    request.node.user_properties.append((LOAD_TEST_STOP_SIGNAL, message))
+    # Only append to user_properties if node is an Item (not Session)
+    if hasattr(request.node, "user_properties"):
+        request.node.user_properties.append((LOAD_TEST_STOP_SIGNAL, message))

@@ -172,6 +172,65 @@ Examples
 
 See the full documentation for more details on concurrent fixtures and shared state.
 
+
+Rate Limiting
+~~~~~~~~~~~~~
+
+The plugin provides a ``rate_limiter_fixture_factory`` for enforcing rate limits across workers:
+
+.. code-block:: python
+
+    import pytest
+    from pytest_load_testing import weight, stop_load_testing
+    from pytest_load_testing.token_bucket_rate_limiter import RateLimit
+
+    @pytest.fixture(scope="session")
+    def api_limiter(rate_limiter_fixture_factory, request):
+        """Rate limiter that stops tests if rate drift exceeds 20%."""
+
+        def on_drift(limiter_id, current_rate, target_rate, drift):
+            message = (
+                f"Rate drift for {limiter_id}: "
+                f"current={current_rate:.2f}/hr, target={target_rate}/hr, "
+                f"drift={drift:.2%}"
+            )
+            stop_load_testing(request, message)
+
+        return rate_limiter_fixture_factory(
+            name="api_limiter",
+            hourly_rate=RateLimit.per_second(10),  # 10 calls/second
+            max_drift=0.2,  # 20% tolerance
+            on_drift_callback=on_drift
+        )
+
+    @weight(1)
+    def test_api_call(api_limiter):
+        with api_limiter.rate_limited_context() as ctx:
+            # Context entry waits if rate limit would be exceeded
+            response = api.get("/data")
+            assert response.status_code == 200
+            assert ctx.call_count >= 1
+
+**Key Features:**
+
+* **Token Bucket Algorithm**: Allows controlled bursts while maintaining average rate
+* **Shared State**: Rate limiting coordinated across all workers
+* **Drift Detection**: Monitors actual vs. target rate and triggers callbacks
+* **Max Calls**: Optional limit on total calls with callback
+* **Dynamic Rates**: Support for callable rate functions
+
+**Rate Limit Helpers:**
+
+.. code-block:: python
+
+    RateLimit.per_second(10)   # 10 calls per second
+    RateLimit.per_minute(600)  # 600 calls per minute
+    RateLimit.per_hour(3600)   # 3600 calls per hour
+    RateLimit.per_day(86400)   # 86400 calls per day
+
+See the full documentation for more examples and advanced usage.
+
+
 License
 -------
 

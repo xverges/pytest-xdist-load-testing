@@ -233,6 +233,7 @@ def test_context_properties(pytester):
     pytester.makeconftest(CONFTEST_CONTENT)
     pytester.makepyfile(
         """
+        import time
         import pytest
         from pytest_load_testing.token_bucket_rate_limiter import (
             TokenBucketRateLimiter,
@@ -255,10 +256,44 @@ def test_context_properties(pytester):
 
             with limiter.rate_limited_context() as ctx:
                 assert ctx.call_count == 2
+
+        def test_start_time(shared_json_fixture_factory):
+            \"\"\"Test that start_time property returns the timestamp of the first call.\"\"\"
+            shared = shared_json_fixture_factory(name="start_time_test")
+            limiter = TokenBucketRateLimiter(
+                shared_state=shared,
+                hourly_rate=RateLimit.per_second(10),
+                burst_capacity=5
+            )
+
+            # Record time before first call
+            before_first_call = time.time()
+
+            # Make first call
+            with limiter.rate_limited_context() as ctx:
+                start_time = ctx.start_time
+                assert ctx.call_count == 1
+
+            # Record time after first call
+            after_first_call = time.time()
+
+            # Verify start_time is within expected range
+            assert before_first_call <= start_time <= after_first_call, (
+                f"start_time {start_time} should be between "
+                f"{before_first_call} and {after_first_call}"
+            )
+
+            # Make second call and verify start_time hasn't changed
+            time.sleep(0.1)
+            with limiter.rate_limited_context() as ctx:
+                assert ctx.start_time == start_time, (
+                    "start_time should remain constant across calls"
+                )
+                assert ctx.call_count == 2
         """
     )
     result = pytester.runpytest("-n", "2", "-v")
-    result.assert_outcomes(passed=1)
+    result.assert_outcomes(passed=2)
 
 
 def test_concurrent_workers(pytester):
