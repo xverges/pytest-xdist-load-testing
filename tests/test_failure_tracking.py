@@ -218,8 +218,6 @@ def test_failure_tracking_integration(pytester):
         import pytest
         from pytest_load_testing.constants import stash_key_scheduler
 
-        pytest_plugins = ['pytest_load_testing.concurrent_fixtures']
-
         captured_scheduler = None
 
         @pytest.hookimpl(trylast=True)
@@ -241,29 +239,46 @@ def test_failure_tracking_integration(pytester):
 
     pytester.makepyfile("""
         import pytest
+        import json
+        from pathlib import Path
+        from filelock import FileLock
         from pytest_load_testing import stop_load_testing
 
         @pytest.fixture(scope="session")
-        def run_count(shared_json_fixture_factory):
-            return shared_json_fixture_factory(
-                "run_count",
-                on_first_worker={'failing': 0, 'passing': 0}
-            )
+        def run_count(tmp_path_factory):
+            counts_file = tmp_path_factory.mktemp("data") / "counts.json"
+            lock_file = counts_file.with_suffix('.lock')
+
+            with FileLock(str(lock_file)):
+                if not counts_file.exists():
+                    counts_file.write_text(json.dumps({'failing': 0, 'passing': 0}))
+
+            class Counter:
+                def __init__(self, file_path, lock_path):
+                    self.file = file_path
+                    self.lock = lock_path
+
+                def increment(self, key):
+                    with FileLock(str(self.lock)):
+                        data = json.loads(self.file.read_text())
+                        data[key] += 1
+                        self.file.write_text(json.dumps(data))
+                        return data
+
+            return Counter(counts_file, lock_file)
 
         def test_failing(run_count):
-            with run_count.locked_dict() as data:
-                data['failing'] += 1
-                failing_count = data['failing']
+            data = run_count.increment('failing')
+            failing_count = data['failing']
 
             if failing_count < 3:
                 assert False, "Intentional failure"
             assert True
 
         def test_passing(request, run_count):
-            with run_count.locked_dict() as data:
-                data['passing'] += 1
-                failing_count = data['failing']
-                passing_count = data['passing']
+            data = run_count.increment('passing')
+            failing_count = data['failing']
+            passing_count = data['passing']
 
             # Stop after enough iterations to see tracking
             if failing_count >= 3 and passing_count >= 3:

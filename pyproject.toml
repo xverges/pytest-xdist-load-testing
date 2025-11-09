@@ -37,7 +37,6 @@ classifiers = [
 dependencies = [
     "pytest>=6.2.0",
     "pytest-xdist>=2.0.0",
-    "filelock>=3.0.0",
 ]
 [project.urls]
 Repository = "https://github.com/xverges/pytest-xdist-load-testing"

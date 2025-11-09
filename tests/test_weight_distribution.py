@@ -1,4 +1,5 @@
 """Test that weight decorator actually affects test distribution."""
+
 import pytest
 
 
@@ -10,37 +11,48 @@ def test_weight_distribution_verification(pytester):
     and runs them multiple times. The high-weight test should be selected
     significantly more often than the low-weight test.
     """
-    pytester.makeconftest("""
-        pytest_plugins = ['pytest_load_testing.concurrent_fixtures']
-    """)
-
     pytester.makepyfile("""
         import pytest
+        import json
+        from pathlib import Path
+        from filelock import FileLock
         from pytest_load_testing import weight, stop_load_testing
 
         @pytest.fixture(scope="session")
-        def test_counts(shared_json_fixture_factory):
-            return shared_json_fixture_factory(
-                "test_counts",
-                on_first_worker={'low': 0, 'high': 0}
-            )
+        def test_counts(tmp_path_factory):
+            counts_file = tmp_path_factory.mktemp("data") / "counts.json"
+            lock_file = counts_file.with_suffix('.lock')
+
+            # Initialize file
+            with FileLock(str(lock_file)):
+                if not counts_file.exists():
+                    counts_file.write_text(json.dumps({'low': 0, 'high': 0}))
+
+            class Counter:
+                def __init__(self, file_path, lock_path):
+                    self.file = file_path
+                    self.lock = lock_path
+
+                def increment(self, key):
+                    with FileLock(str(self.lock)):
+                        data = json.loads(self.file.read_text())
+                        data[key] += 1
+                        self.file.write_text(json.dumps(data))
+                        return data
+
+            return Counter(counts_file, lock_file)
 
         @weight(1)
         def test_low_weight(test_counts):
             '''Test with weight 1 - should run rarely.'''
-            with test_counts.locked_dict() as data:
-                data['low'] += 1
+            test_counts.increment('low')
             assert True
 
         @weight(1)
         def test_stopper(request, test_counts):
             '''Stop after enough iterations.'''
-            with test_counts.locked_dict() as data:
-                data['low'] += 1
-                low_count = data['low']
-                high_count = data['high']
-
-            total = low_count + high_count
+            data = test_counts.increment('low')
+            total = data['low'] + data['high']
 
             # Stop after 200 total test executions for better statistical sample
             if total >= 200:
@@ -51,13 +63,12 @@ def test_weight_distribution_verification(pytester):
         @weight(100)
         def test_high_weight(test_counts):
             '''Test with weight 100 - should run frequently.'''
-            with test_counts.locked_dict() as data:
-                data['high'] += 1
+            test_counts.increment('high')
             assert True
     """)
 
     # Run the load test
-    result = pytester.runpytest('--load-test', '-n', '2', '-v')
+    result = pytester.runpytest("--load-test", "-n", "2", "-v")
 
     # Should stop gracefully
     assert result.ret == pytest.ExitCode.INTERRUPTED
@@ -65,7 +76,8 @@ def test_weight_distribution_verification(pytester):
     # Extract counts from the output
     output = result.stdout.str()
     import re
-    match = re.search(r'Completed (\d+) iterations', output)
+
+    match = re.search(r"Completed (\d+) iterations", output)
     assert match, "Should find completion message with iteration count"
 
     # We can't easily read the final counts from outside, but we can verify

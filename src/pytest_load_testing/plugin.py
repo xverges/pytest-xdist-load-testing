@@ -215,13 +215,6 @@ def pytest_configure(config: pytest.Config):
         "markers", "weight(value): Set the weight of a test for load testing (higher = more likely to be selected)"
     )
 
-    # Register the concurrent_fixtures module to expose its fixtures
-    from . import concurrent_fixtures
-
-    # Only register if not already registered (avoid conflicts with pytest_plugins)
-    if not config.pluginmanager.is_registered(concurrent_fixtures):
-        config.pluginmanager.register(concurrent_fixtures, name="pytest_load_testing_fixtures")
-
     # Only register plugin instance if load testing is enabled
     if config.getoption(LoadTestPlugin.PYTEST_OPTION_NAME, False):
         plugin = LoadTestPlugin()

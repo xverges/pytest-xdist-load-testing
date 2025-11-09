@@ -1,4 +1,5 @@
 """Tests for skip detection and prevention in load testing."""
+
 import pytest
 
 from pytest_load_testing.scheduler import LoadTestScheduler
@@ -117,14 +118,16 @@ def test_conditional_skip_detection(pytester):
             assert True
     """)
 
-    result = pytester.runpytest('--load-test', '-n', '2', '-v')
+    result = pytester.runpytest("--load-test", "-n", "2", "-v")
 
     # In load testing mode, tests run multiple times until stopped
     # Just verify it stopped gracefully
     assert result.ret == pytest.ExitCode.INTERRUPTED
-    result.stdout.fnmatch_lines([
-        '*Interrupted: Test complete*',
-    ])
+    result.stdout.fnmatch_lines(
+        [
+            "*Interrupted: Test complete*",
+        ]
+    )
 
 
 def test_skip_during_setup(pytester):
@@ -145,14 +148,16 @@ def test_skip_during_setup(pytester):
             assert True
     """)
 
-    result = pytester.runpytest('--load-test', '-n', '2', '-v')
+    result = pytester.runpytest("--load-test", "-n", "2", "-v")
 
     # In load testing mode, tests run multiple times until stopped
     # Just verify it stopped gracefully
     assert result.ret == pytest.ExitCode.INTERRUPTED
-    result.stdout.fnmatch_lines([
-        '*Interrupted: Test complete*',
-    ])
+    result.stdout.fnmatch_lines(
+        [
+            "*Interrupted: Test complete*",
+        ]
+    )
 
 
 def test_multiple_skips_tracked(pytester):
@@ -207,50 +212,61 @@ def test_skip_idempotent(pytester):
 
 def test_all_tests_eventually_skip(pytester):
     """Test that scheduler stops when all tests start skipping after iterations."""
-    pytester.makeconftest("""
-        pytest_plugins = ['pytest_load_testing.concurrent_fixtures']
-    """)
-
     pytester.makepyfile("""
         import pytest
+        import json
+        from pathlib import Path
+        from filelock import FileLock
 
         @pytest.fixture(scope="session")
-        def test_counters(shared_json_fixture_factory):
-            return shared_json_fixture_factory(
-                "test_counters",
-                on_first_worker={'a': 0, 'b': 0}
-            )
+        def test_counters(tmp_path_factory):
+            counts_file = tmp_path_factory.mktemp("data") / "counts.json"
+            lock_file = counts_file.with_suffix('.lock')
+
+            with FileLock(str(lock_file)):
+                if not counts_file.exists():
+                    counts_file.write_text(json.dumps({'a': 0, 'b': 0}))
+
+            class Counter:
+                def __init__(self, file_path, lock_path):
+                    self.file = file_path
+                    self.lock = lock_path
+
+                def increment(self, key):
+                    with FileLock(str(self.lock)):
+                        data = json.loads(self.file.read_text())
+                        data[key] += 1
+                        self.file.write_text(json.dumps(data))
+                        return data[key]
+
+            return Counter(counts_file, lock_file)
 
         def test_eventually_skips_a(test_counters):
-            with test_counters.locked_dict() as data:
-                data['a'] += 1
-                count = data['a']
-
+            count = test_counters.increment('a')
             if count > 2:
                 pytest.skip("Test A skipping after 2 runs")
             assert True
 
         def test_eventually_skips_b(test_counters):
-            with test_counters.locked_dict() as data:
-                data['b'] += 1
-                count = data['b']
-
+            count = test_counters.increment('b')
             if count > 3:
                 pytest.skip("Test B skipping after 3 runs")
             assert True
     """)
 
-    result = pytester.runpytest('--load-test', '-n', '2', '-v')
+    result = pytester.runpytest("--load-test", "-n", "2", "-v")
 
     # Should detect all tests are skipped and exit properly
     assert result.ret == pytest.ExitCode.INTERRUPTED
 
     # Verify tests were executed before they started skipping
-    result.stdout.fnmatch_lines_random([
-        '*PASSED*test_eventually_skips_a*',
-        '*PASSED*test_eventually_skips_*',
-        '*All tests are being skipped*',
-    ])
+    result.stdout.fnmatch_lines_random(
+        [
+            "*PASSED*test_eventually_skips_a*",
+            "*PASSED*test_eventually_skips_*",
+            "*All tests are being skipped*",
+        ]
+    )
 
 
 def test_all_tests_marked_skip_integration(pytester):
@@ -271,14 +287,16 @@ def test_all_tests_marked_skip_integration(pytester):
             assert False, "Should not run"
     """)
 
-    result = pytester.runpytest('--load-test', '-n', '2', '-v')
+    result = pytester.runpytest("--load-test", "-n", "2", "-v")
 
     # Should detect all tests are skipped
     # Exit code 0 is acceptable when tests complete naturally
     assert result.ret in (0, 2)  # Success or Interrupted
-    result.stdout.fnmatch_lines([
-        '*skipped*',
-    ])
+    result.stdout.fnmatch_lines(
+        [
+            "*skipped*",
+        ]
+    )
 
 
 def test_all_tests_weight_zero_unit(pytester):
