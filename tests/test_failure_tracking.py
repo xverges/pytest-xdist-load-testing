@@ -246,26 +246,29 @@ def test_failure_tracking_integration(pytester):
 
         @pytest.fixture(scope="session")
         def run_count(tmp_path_factory):
-            counts_file = tmp_path_factory.mktemp("data") / "counts.json"
+            root_tmp_dir = tmp_path_factory.getbasetemp().parent
+            counts_file = root_tmp_dir / "counts.json"
             lock_file = counts_file.with_suffix('.lock')
 
-            with FileLock(str(lock_file)):
+            # Initialize file and create lock object once
+            lock = FileLock(str(lock_file))
+            with lock:
                 if not counts_file.exists():
                     counts_file.write_text(json.dumps({'failing': 0, 'passing': 0}))
 
             class Counter:
-                def __init__(self, file_path, lock_path):
+                def __init__(self, file_path, lock_obj):
                     self.file = file_path
-                    self.lock = lock_path
+                    self.lock = lock_obj
 
                 def increment(self, key):
-                    with FileLock(str(self.lock)):
+                    with self.lock:
                         data = json.loads(self.file.read_text())
                         data[key] += 1
                         self.file.write_text(json.dumps(data))
                         return data
 
-            return Counter(counts_file, lock_file)
+            return Counter(counts_file, lock)
 
         def test_failing(run_count):
             data = run_count.increment('failing')

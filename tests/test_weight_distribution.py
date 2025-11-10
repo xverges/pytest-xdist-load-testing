@@ -20,27 +20,43 @@ def test_weight_distribution_verification(pytester):
 
         @pytest.fixture(scope="session")
         def test_counts(tmp_path_factory):
-            counts_file = tmp_path_factory.mktemp("data") / "counts.json"
+            root_tmp_dir = tmp_path_factory.getbasetemp().parent
+            counts_file = root_tmp_dir / "counts.json"
             lock_file = counts_file.with_suffix('.lock')
+            stop_file = counts_file.with_name('stop.flag')
 
-            # Initialize file
-            with FileLock(str(lock_file)):
+            # Initialize file and create lock object once
+            lock = FileLock(str(lock_file))
+            with lock:
                 if not counts_file.exists():
                     counts_file.write_text(json.dumps({'low': 0, 'high': 0}))
 
             class Counter:
-                def __init__(self, file_path, lock_path):
+                def __init__(self, file_path, lock_obj, stop_path):
                     self.file = file_path
-                    self.lock = lock_path
+                    self.lock = lock_obj
+                    self.stop_file = stop_path
 
                 def increment(self, key):
-                    with FileLock(str(self.lock)):
+                    with self.lock:
                         data = json.loads(self.file.read_text())
                         data[key] += 1
                         self.file.write_text(json.dumps(data))
                         return data
 
-            return Counter(counts_file, lock_file)
+                def should_stop(self):
+                    '''Check if stop flag is set.'''
+                    return self.stop_file.exists()
+
+                def set_stop_flag(self):
+                    '''Set stop flag atomically.'''
+                    with self.lock:
+                        if not self.stop_file.exists():
+                            self.stop_file.touch()
+                            return True
+                        return False
+
+            return Counter(counts_file, lock, stop_file)
 
         @weight(1)
         def test_low_weight(test_counts):
@@ -51,12 +67,18 @@ def test_weight_distribution_verification(pytester):
         @weight(1)
         def test_stopper(request, test_counts):
             '''Stop after enough iterations.'''
+            # Check if already stopped by another worker
+            if test_counts.should_stop():
+                return
+
             data = test_counts.increment('low')
             total = data['low'] + data['high']
 
             # Stop after 200 total test executions for better statistical sample
             if total >= 200:
-                stop_load_testing(request, f"Completed {total} iterations")
+                # Only the first worker to reach this point will set the flag
+                if test_counts.set_stop_flag():
+                    stop_load_testing(request, f"Completed {total} iterations")
 
             assert True
 

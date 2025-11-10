@@ -55,10 +55,13 @@ def test_all_fixture_scopes(pytester):
 
         @pytest.fixture(scope="session")
         def fixture_counts(tmp_path_factory):
-            counts_file = tmp_path_factory.mktemp("data") / "fixture_counts.json"
+            root_tmp_dir = tmp_path_factory.getbasetemp().parent
+            counts_file = root_tmp_dir / "fixture_counts.json"
             lock_file = counts_file.with_suffix('.lock')
 
-            with FileLock(str(lock_file)):
+            # Initialize file and create lock object once
+            lock = FileLock(str(lock_file))
+            with lock:
                 if not counts_file.exists():
                     counts_file.write_text(json.dumps({
                         "session_setup": 0, "session_teardown": 0,
@@ -67,22 +70,22 @@ def test_all_fixture_scopes(pytester):
                     }))
 
             class Counter:
-                def __init__(self, file_path, lock_path):
+                def __init__(self, file_path, lock_obj):
                     self.file = file_path
-                    self.lock = lock_path
+                    self.lock = lock_obj
 
                 def increment(self, key):
-                    with FileLock(str(self.lock)):
+                    with self.lock:
                         data = json.loads(self.file.read_text())
                         data[key] += 1
                         self.file.write_text(json.dumps(data))
                         return data[key]
 
                 def read(self):
-                    with FileLock(str(self.lock)):
+                    with self.lock:
                         return json.loads(self.file.read_text())
 
-            counter = Counter(counts_file, lock_file)
+            counter = Counter(counts_file, lock)
             yield counter
 
             # Write final counts for verification
@@ -90,26 +93,29 @@ def test_all_fixture_scopes(pytester):
 
         @pytest.fixture(scope="session")
         def execution_counts(tmp_path_factory):
-            counts_file = tmp_path_factory.mktemp("data") / "execution_counts.json"
+            root_tmp_dir = tmp_path_factory.getbasetemp().parent
+            counts_file = root_tmp_dir / "execution_counts.json"
             lock_file = counts_file.with_suffix('.lock')
 
-            with FileLock(str(lock_file)):
+            # Initialize file and create lock object once
+            lock = FileLock(str(lock_file))
+            with lock:
                 if not counts_file.exists():
                     counts_file.write_text(json.dumps({"test1": 0, "test2": 0}))
 
             class Counter:
-                def __init__(self, file_path, lock_path):
+                def __init__(self, file_path, lock_obj):
                     self.file = file_path
-                    self.lock = lock_path
+                    self.lock = lock_obj
 
                 def increment(self, key):
-                    with FileLock(str(self.lock)):
+                    with self.lock:
                         data = json.loads(self.file.read_text())
                         data[key] += 1
                         self.file.write_text(json.dumps(data))
                         return data
 
-            return Counter(counts_file, lock_file)
+            return Counter(counts_file, lock)
 
         @pytest.fixture(scope="session")
         def session_fixture(fixture_counts):
