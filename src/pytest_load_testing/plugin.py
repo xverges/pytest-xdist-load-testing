@@ -137,7 +137,7 @@ class LoadTestPlugin:
                 continue
 
             # Get fixture definitions for this name
-            fixture_defs = fixture_manager.getfixturedefs(fixture_name, item)
+            fixture_defs = fixture_manager.getfixturedefs(fixture_name, item.nodeid)
             if not fixture_defs:
                 continue
 
