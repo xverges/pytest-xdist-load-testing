@@ -5,7 +5,7 @@ Tests for fixture lifecycle in load testing mode.
 import pytest
 
 
-def test_request_fixture_available(pytester):
+def test_request_fixture_available(pytester, run_with_timeout):
     """
     Test that the request fixture is available on each test execution.
 
@@ -22,18 +22,17 @@ def test_request_fixture_available(pytester):
         def test_request_fixture_available(request):
             global count
 
+            count += 1
+            if count >= 5:
+                stop_load_testing(request, "Request fixture verified")
+
             # The request fixture should be available
             assert request is not None
             assert hasattr(request, 'node')
             assert hasattr(request, 'session')
-
-            if count < 5:
-                count += 1
-            else:
-              stop_load_testing(request, "Request fixture verified")
     """)
 
-    result = pytester.runpytest("--load-test", "-n", "2", "-v")
+    result = run_with_timeout(pytester, "--load-test", "-n", "2", "-v", timeout=5)
 
     # Should stop gracefully
     result.stdout.fnmatch_lines(
@@ -44,7 +43,7 @@ def test_request_fixture_available(pytester):
     assert result.ret == pytest.ExitCode.INTERRUPTED
 
 
-def test_all_fixture_scopes(pytester):
+def test_all_fixture_scopes(pytester, run_with_timeout):
     """Test that fixtures with different scopes provide correct data."""
     pytester.makepyfile("""
         import pytest
@@ -55,9 +54,11 @@ def test_all_fixture_scopes(pytester):
 
         @pytest.fixture(scope="session")
         def fixture_counts(tmp_path_factory):
-            counts_file = tmp_path_factory.mktemp("data") / "fixture_counts.json"
+            root_tmp_dir = tmp_path_factory.getbasetemp().parent
+            counts_file = root_tmp_dir / "fixture_counts.json"
             lock_file = counts_file.with_suffix('.lock')
 
+            # Initialize file with a lock
             with FileLock(str(lock_file)):
                 if not counts_file.exists():
                     counts_file.write_text(json.dumps({
@@ -69,17 +70,19 @@ def test_all_fixture_scopes(pytester):
             class Counter:
                 def __init__(self, file_path, lock_path):
                     self.file = file_path
-                    self.lock = lock_path
+                    self.lock_path = lock_path
 
                 def increment(self, key):
-                    with FileLock(str(self.lock)):
+                    # Create new FileLock for each operation (xdist-safe)
+                    with FileLock(str(self.lock_path)):
                         data = json.loads(self.file.read_text())
                         data[key] += 1
                         self.file.write_text(json.dumps(data))
                         return data[key]
 
                 def read(self):
-                    with FileLock(str(self.lock)):
+                    # Create new FileLock for each operation (xdist-safe)
+                    with FileLock(str(self.lock_path)):
                         return json.loads(self.file.read_text())
 
             counter = Counter(counts_file, lock_file)
@@ -90,9 +93,11 @@ def test_all_fixture_scopes(pytester):
 
         @pytest.fixture(scope="session")
         def execution_counts(tmp_path_factory):
-            counts_file = tmp_path_factory.mktemp("data") / "execution_counts.json"
+            root_tmp_dir = tmp_path_factory.getbasetemp().parent
+            counts_file = root_tmp_dir / "execution_counts.json"
             lock_file = counts_file.with_suffix('.lock')
 
+            # Initialize file with a lock
             with FileLock(str(lock_file)):
                 if not counts_file.exists():
                     counts_file.write_text(json.dumps({"test1": 0, "test2": 0}))
@@ -100,10 +105,11 @@ def test_all_fixture_scopes(pytester):
             class Counter:
                 def __init__(self, file_path, lock_path):
                     self.file = file_path
-                    self.lock = lock_path
+                    self.lock_path = lock_path
 
                 def increment(self, key):
-                    with FileLock(str(self.lock)):
+                    # Create new FileLock for each operation (xdist-safe)
+                    with FileLock(str(self.lock_path)):
                         data = json.loads(self.file.read_text())
                         data[key] += 1
                         self.file.write_text(json.dumps(data))
@@ -175,7 +181,7 @@ def test_all_fixture_scopes(pytester):
                 stop_load_testing(request, f"All fixture scopes verified (test1: {execution_count_test1}, test2: {execution_count_test2})")
     """)
 
-    result = pytester.runpytest("--load-test", "-n", "1", "-v")
+    result = run_with_timeout(pytester, "--load-test", "-n", "1", "-v")
 
     # Should stop gracefully
     result.stdout.fnmatch_lines(

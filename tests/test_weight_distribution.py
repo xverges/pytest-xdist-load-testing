@@ -3,7 +3,7 @@
 import pytest
 
 
-def test_weight_distribution_verification(pytester):
+def test_weight_distribution_verification(pytester, run_with_timeout):
     """
     Test that weights actually affect test distribution.
 
@@ -68,7 +68,7 @@ def test_weight_distribution_verification(pytester):
     """)
 
     # Run the load test
-    result = pytester.runpytest("--load-test", "-n", "2", "-v")
+    result = run_with_timeout(pytester, "--load-test", "-n", "2", "-v")
 
     # Should stop gracefully
     assert result.ret == pytest.ExitCode.INTERRUPTED

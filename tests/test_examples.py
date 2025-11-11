@@ -118,13 +118,13 @@ def generate_test_function(example_file):
         return test_missing_code
 
     # Create test function that executes the test code
-    def test_from_code(pytester):
+    def test_from_code(pytester, run_with_timeout):
         # Copy example and conftest
         pytester.copy_example(f"examples/{file_name}")
         pytester.copy_example("examples/conftest.py")
 
         # Execute the test code
-        exec(test_code, {"pytester": pytester, "pytest": pytest})
+        exec(test_code, {"pytester": pytester, "pytest": pytest, "run_with_timeout": run_with_timeout})
 
     test_from_code.__name__ = test_name
     test_from_code.__doc__ = f"Auto-generated test for {file_name}"
