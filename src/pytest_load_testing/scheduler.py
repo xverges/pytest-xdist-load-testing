@@ -291,6 +291,18 @@ class LoadTestScheduler(LoadScheduling):
         except (ValueError, IndexError):
             pass
 
+    def mark_session_errored(self, nodeid: str, phase: str) -> None:
+        """
+        Mark that a test error occurred and stop the session.
+
+        Args:
+            nodeid: The node ID of the test that errored
+            phase: The phase where the error occurred (setup, call, teardown)
+        """
+        error_msg = f"Stopping Load Test: error detected in {nodeid} during {phase} phase"
+        self.log(error_msg)
+        self.stop(error_msg)
+
     def remove_node(self, node: WorkerController) -> Optional[str]:
         """Called when a worker node is removed."""
         # For load testing, we don't reschedule crashed items

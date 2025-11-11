@@ -186,6 +186,17 @@ class LoadTestPlugin:
                 elif report.outcome == "passed":
                     scheduler.mark_test_passed(report.nodeid)
 
+        # Detect errors in any phase (setup, call, teardown) and stop the session
+        #  - fixture errors appear as "failed" in setup/teardown, not "error"
+        #  - we do not seem to detect teardown errors
+        is_error = report.outcome == "error"
+        is_setup_teardown_failure = report.outcome == "failed" and report.when in ("setup", "teardown")
+
+        if is_error or is_setup_teardown_failure:
+            nodeid = report.nodeid or "unknown"
+            phase = report.when or "unknown"
+            scheduler.mark_session_errored(nodeid, phase)
+
     def pytest_sessionstart(self, session: pytest.Session):
         """Hook called after Session object has been created and before test collection."""
         self.config = session.config
