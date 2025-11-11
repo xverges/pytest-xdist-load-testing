@@ -211,7 +211,7 @@ def test_mixed_pass_fail_sequence(pytester):
     assert "test_example.py::test_one" in scheduler.last_success_time
 
 
-def test_failure_tracking_integration(pytester):
+def test_failure_tracking_integration(pytester, run_with_timeout):
     """Integration test: verify failure tracking works during actual test execution."""
     # Create a conftest that will capture the scheduler for inspection
     pytester.makeconftest("""
@@ -246,9 +246,11 @@ def test_failure_tracking_integration(pytester):
 
         @pytest.fixture(scope="session")
         def run_count(tmp_path_factory):
-            counts_file = tmp_path_factory.mktemp("data") / "counts.json"
+            root_tmp_dir = tmp_path_factory.getbasetemp().parent
+            counts_file = root_tmp_dir / "counts.json"
             lock_file = counts_file.with_suffix('.lock')
 
+            # Initialize file with a lock
             with FileLock(str(lock_file)):
                 if not counts_file.exists():
                     counts_file.write_text(json.dumps({'failing': 0, 'passing': 0}))
@@ -256,10 +258,11 @@ def test_failure_tracking_integration(pytester):
             class Counter:
                 def __init__(self, file_path, lock_path):
                     self.file = file_path
-                    self.lock = lock_path
+                    self.lock_path = lock_path
 
                 def increment(self, key):
-                    with FileLock(str(self.lock)):
+                    # Create new FileLock for each operation (xdist-safe)
+                    with FileLock(str(self.lock_path)):
                         data = json.loads(self.file.read_text())
                         data[key] += 1
                         self.file.write_text(json.dumps(data))
@@ -286,7 +289,7 @@ def test_failure_tracking_integration(pytester):
             assert True
     """)
 
-    result = pytester.runpytest("--load-test", "-n", "2", "-v")
+    result = run_with_timeout(pytester, "--load-test", "-n", "2", "-v")
 
     # Verify tests ran and load testing stopped
     result.stdout.fnmatch_lines(

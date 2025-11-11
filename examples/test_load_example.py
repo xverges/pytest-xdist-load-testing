@@ -9,11 +9,12 @@ This demonstrates:
 
 TEST_CODE:
 ```python
-result = pytester.runpytest('--load-test', '-n', '2', '-v')
+result = run_with_timeout(pytester, '--load-test', '-n', '2', '-v')
+# Should complete successfully with interrupt
+assert result.ret == pytest.ExitCode.INTERRUPTED
 result.stdout.fnmatch_lines([
     '*Interrupted: Test session completed*',
 ])
-assert result.ret == pytest.ExitCode.INTERRUPTED
 ```
 """
 
@@ -21,7 +22,8 @@ import pytest
 
 from pytest_load_testing import stop_load_testing, weight
 
-# Simple counter without shared state
+# Simple counter - note this won't work across xdist workers
+# but is sufficient for demonstration purposes
 _iteration_count = 0
 
 
@@ -31,8 +33,8 @@ def iteration_counter(request):
     global _iteration_count
     _iteration_count += 1
 
-    # Stop after 100 total test executions
-    if _iteration_count >= 100:
+    # Stop after 50 total test executions (reduced for faster testing)
+    if _iteration_count >= 50:
         stop_load_testing(request, "Test session completed")
 
 
@@ -58,3 +60,6 @@ def test_admin_operations(iteration_counter):
 def test_health_check(iteration_counter):
     """1% of requests - simulates health check."""
     assert True
+
+
+# Made with Bob

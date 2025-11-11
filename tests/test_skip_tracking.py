@@ -103,7 +103,7 @@ def test_all_tests_skipped_stops_scheduler(pytester):
     assert "skipped" in str(exc_info.value).lower()
 
 
-def test_conditional_skip_detection(pytester):
+def test_conditional_skip_detection(pytester, run_with_timeout):
     """Test that conditional skips are detected."""
     pytester.makepyfile("""
         import pytest
@@ -118,7 +118,7 @@ def test_conditional_skip_detection(pytester):
             assert True
     """)
 
-    result = pytester.runpytest("--load-test", "-n", "2", "-v")
+    result = run_with_timeout(pytester, "--load-test", "-n", "2", "-v")
 
     # In load testing mode, tests run multiple times until stopped
     # Just verify it stopped gracefully
@@ -130,7 +130,7 @@ def test_conditional_skip_detection(pytester):
     )
 
 
-def test_skip_during_setup(pytester):
+def test_skip_during_setup(pytester, run_with_timeout):
     """Test that skips during setup phase are handled."""
     pytester.makepyfile("""
         import pytest
@@ -148,7 +148,7 @@ def test_skip_during_setup(pytester):
             assert True
     """)
 
-    result = pytester.runpytest("--load-test", "-n", "2", "-v")
+    result = run_with_timeout(pytester, "--load-test", "-n", "2", "-v")
 
     # In load testing mode, tests run multiple times until stopped
     # Just verify it stopped gracefully
@@ -210,7 +210,7 @@ def test_skip_idempotent(pytester):
     assert scheduler.weights[0] == 0
 
 
-def test_all_tests_eventually_skip(pytester):
+def test_all_tests_eventually_skip(pytester, run_with_timeout):
     """Test that scheduler stops when all tests start skipping after iterations."""
     pytester.makepyfile("""
         import pytest
@@ -254,7 +254,7 @@ def test_all_tests_eventually_skip(pytester):
             assert True
     """)
 
-    result = pytester.runpytest("--load-test", "-n", "2", "-v")
+    result = run_with_timeout(pytester, "--load-test", "-n", "2", "-v", timeout=2)
 
     # Should detect all tests are skipped and exit properly
     assert result.ret == pytest.ExitCode.INTERRUPTED
@@ -269,7 +269,7 @@ def test_all_tests_eventually_skip(pytester):
     )
 
 
-def test_all_tests_marked_skip_integration(pytester):
+def test_all_tests_marked_skip_integration(pytester, run_with_timeout):
     """Test integration when all tests are marked with @pytest.mark.skip."""
     pytester.makepyfile("""
         import pytest
@@ -287,7 +287,7 @@ def test_all_tests_marked_skip_integration(pytester):
             assert False, "Should not run"
     """)
 
-    result = pytester.runpytest("--load-test", "-n", "2", "-v")
+    result = run_with_timeout(pytester, "--load-test", "-n", "2", "-v")
 
     # Should detect all tests are skipped
     # Exit code 0 is acceptable when tests complete naturally
