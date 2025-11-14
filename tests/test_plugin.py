@@ -2,8 +2,8 @@
 
 import pytest
 
-from pytest_load_testing.api import weight
-from pytest_load_testing.scheduler import LoadTestScheduler
+from pytest_xdist_load_testing.api import weight
+from pytest_xdist_load_testing.scheduler import LoadTestScheduler
 
 
 def test_weight_decorator():
@@ -34,7 +34,7 @@ def test_weight_decorator_default():
 def test_weighted_tests_basic(pytester, run_with_timeout):
     """Test basic weighted test execution."""
     pytester.makepyfile("""
-        from pytest_load_testing import weight, stop_load_testing
+        from pytest_xdist_load_testing import weight, stop_load_testing
 
         @weight(1)
         def test_low_weight():
@@ -116,7 +116,7 @@ def test_scheduler_with_weights(pytester):
 def test_plugin_integration(pytester, run_with_timeout):
     """Test full plugin integration with pytest."""
     pytester.makepyfile("""
-        from pytest_load_testing import weight, stop_load_testing
+        from pytest_xdist_load_testing import weight, stop_load_testing
 
         @weight(2)
         def test_weighted():
@@ -141,7 +141,7 @@ def test_plugin_integration(pytester, run_with_timeout):
 def test_multiple_weighted_tests(pytester, run_with_timeout):
     """Test multiple tests with different weights."""
     pytester.makepyfile("""
-        from pytest_load_testing import weight, stop_load_testing
+        from pytest_xdist_load_testing import weight, stop_load_testing
 
         @weight(1)
         def test_weight_1():
@@ -169,7 +169,7 @@ def test_weight_with_parametrize(pytester, run_with_timeout):
     """Test that weight decorator works with parametrized tests."""
     pytester.makepyfile("""
         import pytest
-        from pytest_load_testing import weight, stop_load_testing
+        from pytest_xdist_load_testing import weight, stop_load_testing
 
         @weight(3)
         @pytest.mark.parametrize("value", [1, 2, 3])
@@ -221,7 +221,7 @@ def test_scheduler_remove_node(pytester):
 def test_load_test_option(pytester, run_with_timeout):
     """Test the --load-test command line option."""
     pytester.makepyfile("""
-        from pytest_load_testing import stop_load_testing
+        from pytest_xdist_load_testing import stop_load_testing
 
         def test_simple(request):
             stop_load_testing(request, "Test complete")
@@ -247,7 +247,7 @@ def test_help_message(pytester):
 def test_stop_load_testing_does_not_fail_test(pytester, run_with_timeout):
     """Test that stop_load_testing does not mark the test as failed."""
     pytester.makepyfile("""
-        from pytest_load_testing import stop_load_testing
+        from pytest_xdist_load_testing import stop_load_testing
 
         def test_graceful_stop(request):
             # This test should PASS, not fail
@@ -275,7 +275,7 @@ def test_stop_load_testing_does_not_fail_test(pytester, run_with_timeout):
 def test_stop_load_testing_with_session(pytester, run_with_timeout):
     """Test that stop_load_testing works with session.shouldstop."""
     pytester.makepyfile("""
-        from pytest_load_testing import stop_load_testing
+        from pytest_xdist_load_testing import stop_load_testing
 
         def test_first():
             assert True

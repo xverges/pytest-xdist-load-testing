@@ -40,7 +40,7 @@ def stop_load_testing(request: pytest.FixtureRequest, message: str = "Test reque
         message: The reason for stopping the load testing
 
     Example:
-        from pytest_load_testing import stop_load_testing
+        from pytest_xdist_load_testing import stop_load_testing
 
         def test_something(request):
             if some_condition:

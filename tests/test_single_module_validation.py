@@ -6,7 +6,7 @@ import pytest
 def test_single_module_accepted(pytester, run_with_timeout):
     """Test that load testing works with a single module."""
     pytester.makepyfile("""
-        from pytest_load_testing import stop_load_testing
+        from pytest_xdist_load_testing import stop_load_testing
 
         def test_one(request):
             stop_load_testing(request, "Test complete")
@@ -90,7 +90,7 @@ def test_multiple_modules_in_directory_rejected(pytester, run_with_timeout):
 def test_single_module_with_classes(pytester, run_with_timeout):
     """Test that load testing works with test classes in a single module."""
     pytester.makepyfile("""
-        from pytest_load_testing import stop_load_testing
+        from pytest_xdist_load_testing import stop_load_testing
 
         class TestClassA:
             def test_one(self):

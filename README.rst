@@ -74,7 +74,7 @@ Use the ``@weight`` decorator to control how frequently tests are selected:
 
 .. code-block:: python
 
-    from pytest_load_testing import weight
+    from pytest_xdist_load_testing import weight
 
     @weight(1)
     def test_rare_operation():
@@ -100,7 +100,7 @@ Tests can stop the scheduler programmatically using the ``stop_load_testing`` fu
 
 .. code-block:: python
 
-    from pytest_load_testing import stop_load_testing
+    from pytest_xdist_load_testing import stop_load_testing
 
     def test_with_stop_condition(request):
         result = check_system_health()
@@ -123,7 +123,7 @@ Examples
 
 .. code-block:: python
 
-    from pytest_load_testing import weight
+    from pytest_xdist_load_testing import weight
 
     @weight(70)
     def test_read_heavy():
@@ -144,7 +144,7 @@ Examples
 
 .. code-block:: python
 
-    from pytest_load_testing import weight, stop_load_testing
+    from pytest_xdist_load_testing import weight, stop_load_testing
 
     @weight(1)
     def test_health_check(request):

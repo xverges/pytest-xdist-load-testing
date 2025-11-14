@@ -13,7 +13,7 @@ def test_failure_tracking_initialization(pytester):
     """)
     config = pytester.parseconfigure("--tx", "2*popen")
 
-    from pytest_load_testing.scheduler import LoadTestScheduler
+    from pytest_xdist_load_testing.scheduler import LoadTestScheduler
 
     scheduler = LoadTestScheduler(config, None)
 
@@ -33,7 +33,7 @@ def test_mark_test_failed_increments_counter(pytester):
     """)
     config = pytester.parseconfigure("--tx", "2*popen")
 
-    from pytest_load_testing.scheduler import LoadTestScheduler
+    from pytest_xdist_load_testing.scheduler import LoadTestScheduler
 
     scheduler = LoadTestScheduler(config, None)
     scheduler.collection = ["test_example.py::test_one"]
@@ -57,7 +57,7 @@ def test_mark_test_passed_increments_counter(pytester):
     """)
     config = pytester.parseconfigure("--tx", "2*popen")
 
-    from pytest_load_testing.scheduler import LoadTestScheduler
+    from pytest_xdist_load_testing.scheduler import LoadTestScheduler
 
     scheduler = LoadTestScheduler(config, None)
     scheduler.collection = ["test_example.py::test_one"]
@@ -81,7 +81,7 @@ def test_mark_test_passed_updates_last_success_time(pytester):
     """)
     config = pytester.parseconfigure("--tx", "2*popen")
 
-    from pytest_load_testing.scheduler import LoadTestScheduler
+    from pytest_xdist_load_testing.scheduler import LoadTestScheduler
 
     scheduler = LoadTestScheduler(config, None)
     scheduler.collection = ["test_example.py::test_one"]
@@ -109,7 +109,7 @@ def test_multiple_tests_tracked_independently(pytester):
     """)
     config = pytester.parseconfigure("--tx", "2*popen")
 
-    from pytest_load_testing.scheduler import LoadTestScheduler
+    from pytest_xdist_load_testing.scheduler import LoadTestScheduler
 
     scheduler = LoadTestScheduler(config, None)
     scheduler.collection = ["test_example.py::test_one", "test_example.py::test_two", "test_example.py::test_three"]
@@ -141,7 +141,7 @@ def test_last_success_time_updates_on_subsequent_passes(pytester):
     """)
     config = pytester.parseconfigure("--tx", "2*popen")
 
-    from pytest_load_testing.scheduler import LoadTestScheduler
+    from pytest_xdist_load_testing.scheduler import LoadTestScheduler
 
     scheduler = LoadTestScheduler(config, None)
     scheduler.collection = ["test_example.py::test_one"]
@@ -169,7 +169,7 @@ def test_tracking_without_collection_does_nothing(pytester):
     """)
     config = pytester.parseconfigure("--tx", "2*popen")
 
-    from pytest_load_testing.scheduler import LoadTestScheduler
+    from pytest_xdist_load_testing.scheduler import LoadTestScheduler
 
     scheduler = LoadTestScheduler(config, None)
     scheduler.collection = None
@@ -192,7 +192,7 @@ def test_mixed_pass_fail_sequence(pytester):
     """)
     config = pytester.parseconfigure("--tx", "2*popen")
 
-    from pytest_load_testing.scheduler import LoadTestScheduler
+    from pytest_xdist_load_testing.scheduler import LoadTestScheduler
 
     scheduler = LoadTestScheduler(config, None)
     scheduler.collection = ["test_example.py::test_one"]
@@ -216,7 +216,7 @@ def test_failure_tracking_integration(pytester, run_with_timeout):
     # Create a conftest that will capture the scheduler for inspection
     pytester.makeconftest("""
         import pytest
-        from pytest_load_testing.constants import stash_key_scheduler
+        from pytest_xdist_load_testing.constants import stash_key_scheduler
 
         captured_scheduler = None
 
@@ -242,7 +242,7 @@ def test_failure_tracking_integration(pytester, run_with_timeout):
         import json
         from pathlib import Path
         from filelock import FileLock
-        from pytest_load_testing import stop_load_testing
+        from pytest_xdist_load_testing import stop_load_testing
 
         @pytest.fixture(scope="session")
         def run_count(tmp_path_factory):
