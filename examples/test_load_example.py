@@ -60,6 +60,3 @@ def test_admin_operations(iteration_counter):
 def test_health_check(iteration_counter):
     """1% of requests - simulates health check."""
     assert True
-
-
-# Made with Bob
