@@ -14,7 +14,7 @@ def test_request_fixture_available(pytester, run_with_timeout):
     """
     pytester.makepyfile("""
         import pytest
-        from pytest_load_testing import weight, stop_load_testing
+        from pytest_xdist_load_testing import weight, stop_load_testing
 
         count = 0
 
@@ -50,7 +50,7 @@ def test_all_fixture_scopes(pytester, run_with_timeout):
         import json
         from pathlib import Path
         from filelock import FileLock
-        from pytest_load_testing import weight, stop_load_testing
+        from pytest_xdist_load_testing import weight, stop_load_testing
 
         @pytest.fixture(scope="session")
         def fixture_counts(tmp_path_factory):

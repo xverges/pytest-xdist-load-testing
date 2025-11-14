@@ -20,7 +20,7 @@ result.stdout.fnmatch_lines([
 
 import pytest
 
-from pytest_load_testing import stop_load_testing, weight
+from pytest_xdist_load_testing import stop_load_testing, weight
 
 # Simple counter - note this won't work across xdist workers
 # but is sufficient for demonstration purposes

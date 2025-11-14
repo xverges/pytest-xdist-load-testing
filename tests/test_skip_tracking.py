@@ -2,7 +2,7 @@
 
 import pytest
 
-from pytest_load_testing.scheduler import LoadTestScheduler
+from pytest_xdist_load_testing.scheduler import LoadTestScheduler
 
 
 def test_mark_test_skipped(pytester):
@@ -107,7 +107,7 @@ def test_conditional_skip_detection(pytester, run_with_timeout):
     """Test that conditional skips are detected."""
     pytester.makepyfile("""
         import pytest
-        from pytest_load_testing import stop_load_testing
+        from pytest_xdist_load_testing import stop_load_testing
 
         def test_conditional_skip():
             pytest.skip("Conditionally skipping this test")
@@ -134,7 +134,7 @@ def test_skip_during_setup(pytester, run_with_timeout):
     """Test that skips during setup phase are handled."""
     pytester.makepyfile("""
         import pytest
-        from pytest_load_testing import stop_load_testing
+        from pytest_xdist_load_testing import stop_load_testing
 
         @pytest.fixture
         def skip_fixture():

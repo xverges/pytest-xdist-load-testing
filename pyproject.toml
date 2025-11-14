@@ -41,4 +41,4 @@ dependencies = [
 [project.urls]
 Repository = "https://github.com/xverges/pytest-xdist-load-testing"
 [project.entry-points.pytest11]
-xdist-load-testing = "pytest_load_testing.plugin"
+xdist-load-testing = "pytest_xdist_load_testing.plugin"

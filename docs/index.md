@@ -34,7 +34,7 @@ pytest --load-test -n 4 path/to/test_module.py
 ### Weighted Tests
 
 ```python
-from pytest_load_testing import weight
+from pytest_xdist_load_testing import weight
 
 @weight(60)  # 60% of requests
 def test_read_operations():
@@ -55,7 +55,7 @@ def test_delete_operations():
 ### Stopping the Scheduler
 
 ```python
-from pytest_load_testing import stop_load_testing
+from pytest_xdist_load_testing import stop_load_testing
 
 def test_with_condition(request):
     if critical_error_detected():
@@ -98,7 +98,7 @@ Function to stop the scheduler gracefully.
 - `message`: The reason for stopping (optional, default: "Test requested stop")
 
 ```python
-from pytest_load_testing import stop_load_testing
+from pytest_xdist_load_testing import stop_load_testing
 
 def test_example(request):
     if condition:
@@ -258,8 +258,8 @@ The rate limiter uses the **token bucket algorithm**, which allows controlled bu
 
 ```python
 import pytest
-from pytest_load_testing import weight
-from pytest_load_testing.token_bucket_rate_limiter import RateLimit
+from pytest_xdist_load_testing import weight
+from pytest_xdist_load_testing.token_bucket_rate_limiter import RateLimit
 
 @pytest.fixture(scope="session")
 def api_limiter(rate_limiter_fixture_factory):
@@ -313,8 +313,8 @@ Stop tests if actual rate exceeds target by more than 20%:
 
 ```python
 import pytest
-from pytest_load_testing import weight, stop_load_testing
-from pytest_load_testing.token_bucket_rate_limiter import RateLimit
+from pytest_xdist_load_testing import weight, stop_load_testing
+from pytest_xdist_load_testing.token_bucket_rate_limiter import RateLimit
 
 @pytest.fixture(scope="session")
 def monitored_api(rate_limiter_fixture_factory, request):

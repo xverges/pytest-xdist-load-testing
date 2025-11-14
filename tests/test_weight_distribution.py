@@ -16,7 +16,7 @@ def test_weight_distribution_verification(pytester, run_with_timeout):
         import json
         from pathlib import Path
         from filelock import FileLock
-        from pytest_load_testing import weight, stop_load_testing
+        from pytest_xdist_load_testing import weight, stop_load_testing
 
         @pytest.fixture(scope="session")
         def test_counts(tmp_path_factory):
