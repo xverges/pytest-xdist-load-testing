@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.2](https://github.com/xverges/pytest-xdist-load-testing/compare/v0.2.1...v0.2.2) (2025-11-22)
+
+
+### Bug Fixes
+
+* remove attestations from testpypi ([#11](https://github.com/xverges/pytest-xdist-load-testing/issues/11)) ([08d6094](https://github.com/xverges/pytest-xdist-load-testing/commit/08d60946b5906bc14f0ecae9e95f3aa9644ef53a))
+
 ## [0.2.1](https://github.com/xverges/pytest-xdist-load-testing/compare/v0.2.0...v0.2.1) (2025-11-22)
 
 
