@@ -62,10 +62,15 @@ jobs:
           source venv-test/bin/activate
           
           # Install from TestPyPI, falling back to PyPI for dependencies
-          pip install --index-url https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ pytest-xdist-rate-limit==${{ needs.release-please.outputs.tag_name }}
+          # Get package name from pyproject.toml
+          PACKAGE_NAME=$(python -c "import tomllib; print(tomllib.load(open('pyproject.toml', 'rb'))['project']['name'])")
+          PACKAGE_IMPORT_NAME=$(echo $PACKAGE_NAME | tr '-' '_')
+
+          # Install from TestPyPI, falling back to PyPI for dependencies
+          pip install --index-url https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ "$PACKAGE_NAME==${{ needs.release-please.outputs.tag_name }}"
           
           # Simple import check
-          python -c "import pytest_xdist_rate_limit; print(f'Successfully imported pytest_xdist_rate_limit version {pytest_xdist_rate_limit.__version__}')"
+          python -c "import $PACKAGE_IMPORT_NAME; print(f'Successfully imported $PACKAGE_IMPORT_NAME version {$PACKAGE_IMPORT_NAME.__version__}')"
 
       - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
