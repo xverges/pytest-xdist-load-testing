@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.4](https://github.com/xverges/pytest-xdist-load-testing/compare/v0.2.3...v0.2.4) (2025-11-22)
+
+
+### Bug Fixes
+
+* retry waiting for testpypi to publsih the package ([#15](https://github.com/xverges/pytest-xdist-load-testing/issues/15)) ([54161e2](https://github.com/xverges/pytest-xdist-load-testing/commit/54161e25ddb9ce93a40ef4b43183846fd95b5790))
+
 ## [0.2.3](https://github.com/xverges/pytest-xdist-load-testing/compare/v0.2.2...v0.2.3) (2025-11-22)
 
 
