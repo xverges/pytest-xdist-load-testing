@@ -71,7 +71,26 @@ jobs:
           # Tags are v-prefixed. Versions are not.
           TAG_NAME="${{ needs.release-please.outputs.tag_name }}"
           VERSION="${TAG_NAME#v}"
-          pip install --index-url https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ "$PACKAGE_NAME==$VERSION"
+          
+          MAX_RETRIES=10
+          DELAY=30
+          SUCCESS=0
+          
+          for i in $(seq 1 $MAX_RETRIES); do
+            echo "Attempt $i of $MAX_RETRIES to install $PACKAGE_NAME==$VERSION..."
+            if pip install --index-url https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ "$PACKAGE_NAME==$VERSION"; then
+              echo "Installation successful!"
+              SUCCESS=1
+              break
+            fi
+            echo "Installation failed. Retrying in $DELAY seconds..."
+            sleep $DELAY
+          done
+          
+          if [ $SUCCESS -eq 0 ]; then
+            echo "Failed to install package after $MAX_RETRIES attempts."
+            exit 1
+          fi
           
           # Simple import check
           python -c "import $PACKAGE_IMPORT_NAME; print(f'Successfully imported $PACKAGE_IMPORT_NAME version {$PACKAGE_IMPORT_NAME.__version__}')"
