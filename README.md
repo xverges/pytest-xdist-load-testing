@@ -23,7 +23,7 @@ A pytest-xdist scheduler for continuous load testing with weighted test selectio
 ## Installation
 
 ```bash
-pip install git+https://github.com/xverges/pytest-xdist-load-testing.git
+pip install pytest-xdist-load-testing
 ```
 
 ## Examples
