@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.3](https://github.com/xverges/pytest-xdist-load-testing/compare/v0.2.2...v0.2.3) (2025-11-22)
+
+
+### Bug Fixes
+
+* remove v from tag when looking for the version ([#13](https://github.com/xverges/pytest-xdist-load-testing/issues/13)) ([2150f95](https://github.com/xverges/pytest-xdist-load-testing/commit/2150f950a58f570070f05973c2fc60608d8893b7))
+
 ## [0.2.2](https://github.com/xverges/pytest-xdist-load-testing/compare/v0.2.1...v0.2.2) (2025-11-22)
 
 
