@@ -2,7 +2,7 @@
 
 from .api import stop_load_testing, weight
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 __all__ = [
     "weight",
     "stop_load_testing",
