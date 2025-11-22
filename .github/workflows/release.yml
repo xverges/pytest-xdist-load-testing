@@ -68,7 +68,10 @@ jobs:
           PACKAGE_IMPORT_NAME=$(echo $PACKAGE_NAME | tr '-' '_')
 
           # Install from TestPyPI, falling back to PyPI for dependencies
-          pip install --index-url https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ "$PACKAGE_NAME==${{ needs.release-please.outputs.tag_name }}"
+          # Tags are v-prefixed. Versions are not.
+          TAG_NAME="${{ needs.release-please.outputs.tag_name }}"
+          VERSION="${TAG_NAME#v}"
+          pip install --index-url https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ "$PACKAGE_NAME==$VERSION"
           
           # Simple import check
           python -c "import $PACKAGE_IMPORT_NAME; print(f'Successfully imported $PACKAGE_IMPORT_NAME version {$PACKAGE_IMPORT_NAME.__version__}')"
