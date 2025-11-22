@@ -51,6 +51,7 @@ jobs:
           repository-url: https://test.pypi.org/legacy/
           skip-existing: true
           verbose: true
+          attestations: false
 
       - name: Verify TestPyPI release
         run: |
